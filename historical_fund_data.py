@@ -5,6 +5,7 @@ import pathlib
 import math
 from datetime import date
 from datetime import timedelta
+import copy
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,8 +15,6 @@ import numpy as np
 
 # TODO:
 
-# push to git
-# test and finish portfolio_list
 # add EOD price data to portfolio_list
 
 # After:
@@ -33,6 +32,11 @@ import numpy as np
 # just pass all the values to the transaction
 
 
+#RISKY STUFF
+# haven't checked return output with broker statements
+# don't know the best way to create a pathvariable
+
+
 
 
 # look at sizeof objects
@@ -44,11 +48,15 @@ import numpy as np
 
 class Portfolio():
 
+
     class Stock():
-        def __init__(self,ticker,num_shares):
+        def __init__(self,ticker,num_shares,first_purchase):
             self.ticker = ticker
             self.num_shares = num_shares
             self.close_price = None
+            self.first_purchase_date = first_purchase
+
+    closed_positions = ["this is a class variable"]
 
     def __init__(self,date):
         self.date = date
@@ -56,28 +64,32 @@ class Portfolio():
         self.cash_holdings = 0
     def add_transaction(self,trans):
 
+        self.date = trans.date
+
         if (trans.name == "Buy"):
             if trans.ticker in self.stock_dict:
                 curr_stock = self.stock_dict[trans.ticker]
                 curr_stock.num_shares += trans.quantity
             else:
-                self.stock_dict[trans.ticker] = self.Stock(trans.ticker,trans.quantity)
+                self.stock_dict[trans.ticker] = self.Stock(trans.ticker,trans.quantity,trans.date)
         elif (trans.name == "Sell"):
             if trans.ticker in self.stock_dict:
                 curr_stock = self.stock_dict[trans.ticker]
                 curr_stock.num_shares -= trans.quantity
                 if (curr_stock.num_shares == 0):
-                    self.stock_dict.pop(trans.ticker)
+                    popped_stock = self.stock_dict.pop(trans.ticker)
+                    Portfolio.closed_positions.append( (trans.ticker,popped_stock.first_purchase_date,trans.date))
                     #print("popping ", trans.ticker)
             else:
-                self.stock_dict[trans.ticker] = self.Stock(trans.ticker,trans.quantity)
+                self.stock_dict[trans.ticker] = self.Stock(trans.ticker,trans.quantity,trans.date)
 
         if (trans.name != "Dividend"): # Ordinary and Qualified dividends
             self.cash_holdings += trans.amount
 
 
 class Transaction():
-    def __init__(self):
+    def __init__(self,date):
+        self.date = date
         self.name = None
         self.quantity = None #number of shares if any
         self.ticker = None   #stock ticker if a stock was bought or sold
@@ -161,7 +173,7 @@ def parseTDtransactions ()->list:
     else:
         raise TypeError("Enter a valid starting year")
 
-    path_name = "../Python_Scripts/"
+    path_name = "../Portfolio_Scripts/"
     transaction_file_name = "_transactions.csv"
     curr_year = end_year
 
@@ -178,10 +190,10 @@ def parseTDtransactions ()->list:
             if (row['DATE'] != "***END OF FILE***"):
                 curr_date = excel_date_to_datetime(row['DATE'],curr_year)
 
-                curr_Transaction = Transaction()
+                curr_Transaction = Transaction(curr_date)
                 curr_Transaction.addTdTransaction(row)
 
-                transaction_list.append((curr_date,curr_Transaction))
+                transaction_list.append(curr_Transaction)
 
         curr_year -=1
 
@@ -196,23 +208,38 @@ def parseTDtransactions ()->list:
 def gen_daily_holdings(transaction_list: list)->list:
 
     portfolio_list = []
-    print(len(transaction_list))
 
     for trans in transaction_list:
         if (len(portfolio_list)==0):
-            new_portfolio = Portfolio(trans[0])
-            new_portfolio.add_transaction(trans[1])
+            new_portfolio = Portfolio(trans.date)
+            new_portfolio.add_transaction(trans)
+            portfolio_list.append(new_portfolio)
+            #print(portfolio_list[-1].date)
+
+        elif(trans.date == portfolio_list[-1].date):
+            portfolio_list[-1].add_transaction(trans)
+            #print(portfolio_list[-1].date)
+        else:
+            new_portfolio = copy.deepcopy(portfolio_list[-1])
+            new_portfolio.add_transaction(trans)
             portfolio_list.append(new_portfolio)
 
-        elif(trans[0] == portfolio_list[-1].date):
-            portfolio_list[-1].add_transaction(trans[1])
-        else:
-            new_portfolio = portfolio_list[-1]
-            new_portfolio.date = trans[0]
-            new_portfolio.add_transaction(trans[1])
-            portfolio_list.append(new_portfolio)
+
+            #print(portfolio_list[-1].date)
 
     return portfolio_list
+
+# generates a list of open positions and closed positions
+def get_all_positions(port_list: list)->list:
+    full_list = port_list[-1].closed_positions
+
+    curr_portfolio = port_list[-1]
+    stock_dict = curr_portfolio.stock_dict
+    for i in stock_dict:
+        full_list.append((i,stock_dict[i].first_purchase_date,date.today()))
+
+    print(full_list)
+
 
 # MAIN:
 
@@ -222,5 +249,4 @@ transaction_data = parseTDtransactions()
 #generate a list of portfolio holdings for each day from inception to present
 portfolio_list = gen_daily_holdings(transaction_data)
 
-
-#so now we have a dataframe
+get_all_positions(portfolio_list)
