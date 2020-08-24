@@ -1,26 +1,23 @@
 
 __author__= 'gianluca'
 
+# importing modules
 import pandas
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas_datareader as pdr
 from datetime import date
-from gen_date_range import * #this is file w/ date range functions
+
+# importing functions from other files
+from gen_date_range import * 
 from historical_fund_data import *
+from api_pulls import *
 
 # columns to add to output 
 # contribution to return: weight * return 
 # excess return
 
 #FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS
-def get_adj_close(stock_list, start, end):
-    df= pdr.get_data_yahoo(stock_list, end=end, start=start) #grab data from yahoo
-    adjclose= df['Adj Close'] #isolate the adj close figures
-    # print(close) #pringting close data to the console
-    return adjclose
-
-
 
 # MAIN: 
 
@@ -45,7 +42,7 @@ if __name__ == "__main__":
     # Get the appropriate date range from user
     end= date.today()
     start= start_date(time_horizon) #function imported from another file
-    adj_close= get_adj_close(stock_list, start, end) # pulls dataframe of selected stocks
+    adj_close= get_close_yahoo(stock_list, start, end) # pulls dataframe of selected stocks
 
     # turning close data into index starting from 0
     index=  adj_close / adj_close.head(1).to_numpy() - 1

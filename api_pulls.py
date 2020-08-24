@@ -1,6 +1,13 @@
 
-import pandas_datareader as pdr
+__author__ = 'gianluca'
 
+
+# TODO: 
+
+# at some point need to add API functoins for IEX cloud
+
+
+import pandas_datareader as pdr
 
 # pulls closing price data from yahoo fianance
 def get_close_yahoo(stock_list, start, end):
@@ -17,4 +24,12 @@ def get_adj_close_yahoo(stock_list, start, end):
     return adjclose
 
 
-    
+# MAIN: 
+
+if __name__ == "__main__":
+    print()
+else:
+    print('Importing Functions: api_pulls.py')
+
+
+
