@@ -8,6 +8,7 @@ import pandas_datareader as pdr
 from datetime import date
 from gen_date_range import * #this is file w/ date range functions
 
+
 # columns to add to output 
 # contribution to return: weight * return 
 # excess return
@@ -21,24 +22,25 @@ def get_adj_close(stock_list, start, end):
     return adjclose
 
 
-# this asks user to enter comma delimited list of stocks
-stock_list= ['SPY'] + input('Stocks (AAPL, MSFT, ...): ').split(', ') #ask user for stocks
 
 
+
+# MAIN: 
+
+#this will be GUI or selected by user in terminal
+time_horizon= input('Horizaon (YTD, MTD, 1YR, 2YR, 3YR): ')
+
+#stock list will eventually be taken from portfolio stats
+#stock_list= ['SPY'] + input('Stocks (AAPL, MSFT, ...): ').split(', ') #ask user for stocks
+stock_list= ['SPY', 'AAPL', 'MSFT', 'WM'] # will use this list for now ...
+risk_free= 0.02 # arbitrary risk free rate of return
 
 # Get the appropriate date range from user
 end= date.today()
-time_horizon= input('Horizaon (YTD, MTD, 1YR, 2YR, 3YR): ')
 start= start_date(time_horizon) #function imported from another file
+adj_close= get_adj_close(stock_list, start, end) # pulls dataframe of selected stocks
 
 
-
-
-
-adj_close= get_adj_close(stock_list, start, end)
-
-
-risk_free= 0.02
 
 # turning close data into index starting from 0
 index=  adj_close / adj_close.head(1).to_numpy() - 1
