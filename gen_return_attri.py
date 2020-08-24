@@ -19,6 +19,58 @@ from api_pulls import *
 
 #FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS
 
+def generate_shares_df(portfolio_list):
+    # this function takes the portfolio list and generates a dataframe of dates
+    # with sharecounts for different holdings + cash value
+    # NOTE: both NaN and 0 both imply shares
+
+    counter= 0
+    breaker= 1000
+
+    # this iterates through the portfolio list
+    for i in portfolio_list: 
+        #print(i) 
+        #print(i.date)
+        #print(i.cash_holdings)
+
+        if counter== 0:
+            # this initiates a dataframe for share counts
+            shares_df= pandas.DataFrame(columns= ['cash'], index= [i.date])
+        
+        else:
+            # following initiation, we append new portfolios
+            # the new row has same columns, NEW date, and values initiate at NaN
+            # in next loop, NaN is replaced w/ shares unless stock no longer exists, and stays NaN
+            new_row= pandas.DataFrame(columns=shares_df.columns, index= [i.date])
+            shares_df.append(new_row)
+
+        # adding cash position: this comes from inital object, now the share attributes
+        shares_df.at[i.date, 'cash']= i.cash_holdings
+        
+        # this iterates through the stock dictionary / attributes
+        for key, value in i.stock_dict.items():
+            # these are all of the stock item attirbutes
+            #print(key, value.ticker, value.num_shares, value.close_price, value.first_purchase_date)
+
+            #if the stock already exists in history, update or maintain the number of shares for date
+            if key in shares_df.columns: 
+                shares_df.at[i.date,key]= value.num_shares
+            #if the stock does has no history, add to the dataframe, then add shares for said daite
+            else:
+                shares_df[key]= 0
+                shares_df.at[i.date,key]= value.num_shares
+
+
+        counter+=1
+
+        if counter==breaker:
+            break
+        else:
+            continue
+
+    return shares_df
+
+
 # MAIN: 
 
 if __name__ == "__main__":
@@ -29,6 +81,37 @@ if __name__ == "__main__":
     #generate a list of portfolio holdings for each day from inception to present
     portfolio_list = gen_daily_holdings(transaction_data)
     full_list= get_all_positions(portfolio_list)
+
+
+    shares_df= generate_shares_df(portfolio_list)
+
+    print()
+    print()
+
+    print(shares_df)
+
+
+else:
+    print('Imported Functions: gen_return_attri.py')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
+
+if __name__ == "__main__":
 
 
     #this will be GUI or selected by user in terminal
@@ -42,11 +125,11 @@ if __name__ == "__main__":
     # Get the appropriate date range from user
     end= date.today()
     start= start_date(time_horizon) #function imported from another file
-    adj_close= get_close_yahoo(stock_list, start, end) # pulls dataframe of selected stocks
+    close= get_close_yahoo(stock_list, start, end) # pulls dataframe of selected stocks
 
     # turning close data into index starting from 0
-    index=  adj_close / adj_close.head(1).to_numpy() - 1
-    rets= adj_close.pct_change().dropna()
+    index=  close / close.head(1).to_numpy() - 1
+    rets= close.pct_change().dropna()
     list_len_init= len(rets.columns)
     equal_weights= np.ones(list_len_init-1)/(list_len_init-1)
 
@@ -56,6 +139,11 @@ if __name__ == "__main__":
     returns= index.tail(1)
     returns['Equal Weight']= (rets['Equal Weight']+1).product()-1 #need to add equal weight return
 
+    shares_dataframe= pandas.DataFrame(columns=close.columns, index=close.index)
+    shares_dataframe.at['date':'date', 'ticker':'ticker']= 10
+    
+    
+    
     # CHECKS CHECKS CHECKS CHECKS CHECKS CHECKS CHECKS
     # print(np.cov(rets['SPY'], rets['AAPL'])[0,1])
     # print(np.cov(rets['SPY'], rets['SPY'], ddof=1))
@@ -95,3 +183,4 @@ if __name__ == "__main__":
 else:
     print('Imported Functions: gen_return_attri.py')
 
+"""
