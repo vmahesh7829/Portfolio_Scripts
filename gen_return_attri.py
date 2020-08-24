@@ -82,8 +82,17 @@ if __name__ == "__main__":
     portfolio_list = gen_daily_holdings(transaction_data)
     full_list= get_all_positions(portfolio_list)
 
-
+    # dataframe of cash/share positions
     shares_df= generate_shares_df(portfolio_list)
+
+    #date range for the portfolio -> used for API pull
+    stock_list= shares_df.colunmns[1:] #cash position is not a stock (and is first column)
+    stock_list_w_index= ['SPY'] + stock_list #also want to pull SPY for alplha/beta calc etc
+    end= date.today()
+    start= shares_df.index[0] #oldest date pulled from shares_df
+
+    # pulls stock close data (raw, not adjusted)
+    stock_close_df= get_close_yahoo(stock_list, start, end)
 
     print()
     print()
