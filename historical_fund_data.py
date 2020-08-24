@@ -37,8 +37,6 @@ import numpy as np
 # don't know the best way to create a pathvariable
 
 
-
-
 # look at sizeof objects
 # https://stackoverflow.com/questions/28655004/how-to-calculate-the-number-of-bytes-stored-in-object
 
@@ -48,6 +46,7 @@ import numpy as np
 
 class Portfolio():
 
+    closed_positions = []
 
     class Stock():
         def __init__(self,ticker,num_shares,first_purchase):
@@ -55,8 +54,6 @@ class Portfolio():
             self.num_shares = num_shares
             self.close_price = None
             self.first_purchase_date = first_purchase
-
-    closed_positions = ["this is a class variable"]
 
     def __init__(self,date):
         self.date = date
@@ -83,8 +80,8 @@ class Portfolio():
             else:
                 self.stock_dict[trans.ticker] = self.Stock(trans.ticker,trans.quantity,trans.date)
 
-        if (trans.name != "Dividend"): # Ordinary and Qualified dividends
-            self.cash_holdings += trans.amount
+
+        self.cash_holdings += trans.amount
 
 
 class Transaction():
@@ -129,7 +126,7 @@ class Transaction():
             self.ticker = row['SYMBOL']
             self.price = row['PRICE']
             self.commission = row['COMMISSION']
-            self.amount = row['AMOUNT']
+            self .amount = row['AMOUNT']
             self.reg_fee = row['REG FEE']
         elif (desc[0:7] == "ADR FEE"):
             self.amount = row['AMOUNT']
@@ -238,9 +235,7 @@ def get_all_positions(port_list: list)->list:
     for i in stock_dict:
         full_list.append((i,stock_dict[i].first_purchase_date,date.today()))
 
-    print(full_list)
-
-
+    return (full_list)
 # MAIN:
 
 # transform TDAMERITRADE csv data into a standardized transaction data format
@@ -248,5 +243,8 @@ transaction_data = parseTDtransactions()
 
 #generate a list of portfolio holdings for each day from inception to present
 portfolio_list = gen_daily_holdings(transaction_data)
+
+for i in portfolio_list:
+    print(i.date,i.cash_holdings,i.stock_dict)
 
 get_all_positions(portfolio_list)
