@@ -19,10 +19,42 @@ from api_pulls import *
 
 #FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS
 
+def beta(x, indx):
+    # this takes two lists and calculates beta
+    covariance= np.cov(x, indx)[0,1] # this always returns a covariance matrix which is why [0,1]
+    indx_variance= np.var(indx)
+    beta= covariance/indx_variance
+
+    return beta
+
+
+def alpha(ret, rf, beta, erp):
+    # E(r) = alpha + risk free + beta * (equity risk premium)
+    alpha= ret - rf - beta*erp
+    
+    return alpha
+
+
+def information_ratio(TRx, TRindx, x, indx): 
+    # takes in two return lists and calculates information ratio
+    excess_ret= TRx - TRindx
+    diff_ret= []
+    for i in range(len(x)): # can't add subtract lists
+        diff_ret+=[x[i]-indx[i]]
+
+    tracking_error= np.std(diff_ret)
+    info_ratio= excess_ret/tracking_error
+
+    return info_ratio
+
+
+
+
+
 def generate_shares_df(portfolio_list):
     # this function takes the portfolio list and generates a dataframe of dates
     # with sharecounts for different holdings + cash value
-    # NOTE: both NaN and 0 both imply shares
+    # NOTE: both NaN and 0 both imply 0 shares
 
     counter= 0
     breaker= 1000
@@ -66,7 +98,7 @@ def generate_shares_df(portfolio_list):
         if counter==breaker:
             break
         else:
-            continue
+            pass
 
     return shares_df
 
@@ -78,14 +110,14 @@ if __name__ == "__main__":
     # pulling in TD list data
     transaction_data = parseTDtransactions()
 
-    #generate a list of portfolio holdings for each day from inception to present
+    # generate a list of portfolio holdings for each day from inception to present
     portfolio_list = gen_daily_holdings(transaction_data)
     full_list= get_all_positions(portfolio_list)
 
     # dataframe of cash/share positions
     shares_df= generate_shares_df(portfolio_list)
 
-    #date range for the portfolio -> used for API pull
+    # date range for the portfolio -> used for API pull
     stock_list= shares_df.colunmns[1:] #cash position is not a stock (and is first column)
     stock_list_w_index= ['SPY'] + stock_list #also want to pull SPY for alplha/beta calc etc
     end= date.today()
