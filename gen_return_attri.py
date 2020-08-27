@@ -19,6 +19,18 @@ from api_pulls import *
 
 #FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS
 
+def total_ret(x): 
+    # produces total price return
+    # mostly used for alpha and information ratio
+    # compounds daily returns to get cumulative return
+    one_plus_ret= []
+    for i in range(len(x)):
+        one_plus_ret+= [1+x[i]]
+
+    tot_ret= np.prod(one_plus_ret)-1
+    return tot_ret
+
+
 def beta(x, indx):
     # this takes two lists and calculates beta
     covariance= np.cov(x, indx)[0,1] # this always returns a covariance matrix which is why [0,1]
@@ -30,18 +42,18 @@ def beta(x, indx):
 
 def alpha(ret, rf, beta, erp):
     # E(r) = alpha + risk free + beta * (equity risk premium)
-    alpha= ret - rf - beta*erp
+    alpha= ret - rf - (beta*erp)
     
     return alpha
 
 
 def information_ratio(TRx, TRindx, x, indx): 
     # takes in two return lists and calculates information ratio
-    excess_ret= TRx - TRindx
     diff_ret= []
     for i in range(len(x)): # can't add subtract lists
-        diff_ret+=[x[i]-indx[i]]
+        diff_ret+= [x[i]-indx[i]]
 
+    excess_ret= TRx - TRindx
     tracking_error= np.std(diff_ret)
     info_ratio= excess_ret/tracking_error
 
@@ -50,8 +62,7 @@ def information_ratio(TRx, TRindx, x, indx):
 
 
 
-
-def generate_shares_df(portfolio_list):
+def gen_shares_df(portfolio_list):
     # this function takes the portfolio list and generates a dataframe of dates
     # with sharecounts for different holdings + cash value
     # NOTE: both NaN and 0 both imply 0 shares
@@ -115,25 +126,49 @@ if __name__ == "__main__":
     full_list= get_all_positions(portfolio_list)
 
     # dataframe of cash/share positions
-    shares_df= generate_shares_df(portfolio_list)
+    shares_df= gen_shares_df(portfolio_list)
 
     # date range for the portfolio -> used for API pull
-    stock_list= shares_df.colunmns[1:] #cash position is not a stock (and is first column)
+    stock_list= shares_df.columns[1:] #cash position is not a stock (and is first column)
     stock_list_w_index= ['SPY'] + stock_list #also want to pull SPY for alplha/beta calc etc
     end= date.today()
     start= shares_df.index[0] #oldest date pulled from shares_df
 
     # pulls stock close data (raw, not adjusted)
-    stock_close_df= get_close_yahoo(stock_list, start, end)
+    # stock_close_df= get_close_yahoo(stock_list, start, end)
 
     print()
     print()
 
-    print(shares_df)
+    # the following is a test for portfolio statistics defined above
+    # they work but have not double checked whether output is actually correct
+
+    port= [0.02,0.01,0.015,-0.03,0.02,0.05,0.01,-0.01,0.015,0.01]
+    indx= [0.01,0.01,0.02,-0.04,0.015,0.015,0.0,-0.03,0.01,0.015]
+
+    rf= 0.02
+    port_ret= total_ret(port)
+    indx_ret= total_ret(indx) 
+    erp= indx_ret-rf
+
+    beta= beta(x= port, indx=indx)
+    alpha= alpha(ret=port_ret, rf=rf, beta=beta, erp=erp)
+    info_ratio= information_ratio(TRx= port_ret, TRindx= indx_ret, x=port, indx=indx)
+
+    
+    # printing output of results
+    print('Port ret: ', port_ret)
+    print('Indx ret: ', indx_ret)
+
+    print()
+
+    print('Beta: ', beta)
+    print('Alpha: ', alpha)
+    print('Info: ', info_ratio)
 
 
 else:
-    print('Imported Functions: gen_return_attri.py')
+    print('Import: {}'.format(__file__))
 
 
 

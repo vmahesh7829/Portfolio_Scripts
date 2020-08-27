@@ -29,7 +29,7 @@ def get_adj_close_yahoo(stock_list, start, end):
 if __name__ == "__main__":
     print()
 else:
-    print('Importing Functions: api_pulls.py')
+    print('Import: {}'.format(__file__))
 
 
 
