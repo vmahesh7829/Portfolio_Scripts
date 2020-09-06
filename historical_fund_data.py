@@ -28,15 +28,12 @@ import seaborn as sns
 import numpy as np
 
 
-# Forget a lot of this stuff. Lets just get this working.
-# take in a transaction list and a daterange
-# from there we can generate a portfolio on a given day. Then generate whatever output
-# then write a function that takes in a transaction list,daterange,lambda
-# that should do everything
+
+
 
 # TODO:
 
-# add EOD price data to portfolio_list
+# If going with stock_dict, write a function that takes in a transaction list,daterange,lambda
 
 # After:
 # Compare to Monthly Statements
@@ -338,38 +335,20 @@ def gen_stock_hash(master_df,trade_days):
 
     return master_stock_dict
 
+def binary_search(d_list,val):
+  def search_func(d_list,val,first,last):
+        mid_ind = (first+last)//2
+        mid = d_list[mid_ind]
 
+        if (val < mid):
+            return search_func(d_list,val,first,mid_ind-1)
+        elif (val > mid):
+            return search_func(d_list,val,mid_ind+1,last)
+        else:
+            return mid_ind
 
-    #this is wrong. it is incrementing day too early
-def daily_ret_from_portlist(p_list, trade_days,master_stock_dict):
-    # get the dates from the master_df (need to verify that these include all holidays)
-    output = []
-    p_ind = 0
+  return search_func(d_list,val,0,len(d_list)-1)
 
-    curr_port = p_list[p_ind]
-
-    for day in trade_days:
-        print(day)
-        print(curr_port.date)
-        if (day >= curr_port.date):
-            if (p_ind+1 < len(p_list)):
-                p_ind += 1
-                curr_port = p_list[p_ind]
-                #print(curr_port.date,curr_port.stock_dict,curr_port.cash_holdings)
-
-        curr_port_val = curr_port.cash_holdings
-        for ticker in curr_port.stock_dict:
-            curr_port_val += ( curr_port.stock_dict[ticker].num_shares * master_stock_dict[ticker][day])
-        output.append(curr_port_val)
-
-
-    return(output)
-
-def time_series_from_portlist(trans_data,trade_days,master_stock_dict):
-    port_list = gen_daily_holdings(trans_data)
-    daily_ret_from_portlist(port_list,trade_days,master_stock_dict)
-
-    #print( "Portfolio list takes up " ,get_size(port_list), " bytes of memory" )
 
 
 def create_numpy_stockpricearray():
@@ -383,7 +362,18 @@ def create_numpy_stockpricearray():
 
     #print(stocks_held)
     trade_days = np.array(trade_days)
+
     stock_arr = pd.DataFrame(master_df).to_numpy()
+    stock_arr = stock_arr.transpose()
+
+    index_arr = master_df.index
+
+    first_ind = binary_search(index_arr,trade_days[0])
+    last_ind = binary_search(index_arr,trade_days[-1])
+    nump_inds = (first_ind,last_ind)
+
+    print(master_df)
+
 
     #print(stock_arr)
     #print(master_df)
@@ -391,31 +381,99 @@ def create_numpy_stockpricearray():
     for i in range (len(master_df.columns)):
         numpy_dict[master_df.columns[i]] = i
 
-    return(trans_list,trade_days,numpy_dict)
+    return(trans_list,trade_days,stock_arr,numpy_dict,nump_inds)
+
+
+
+
+
+
+
+def gen_numpy_pos_list(curr_port,args):
+    all_stocks = args[0]
+    numpy_dict = args[1]
+
+    nump_arr = np.zeros((1, len(all_stocks)+1))
+    nump_arr = nump_arr[0]
+
+    nump_arr[0] = curr_port.cash_holdings
+
+    for stock in all_stocks:
+        s_ind = numpy_dict[stock]
+        if (stock in curr_port.stock_dict):
+            nump_arr[s_ind+1] = curr_port.stock_dict[stock].num_shares
+
+    return nump_arr
 
 
 # take in a transaction_list,trade_days,
-def time_series_from_numpy(trans_list,trade_days,stock_arr,numpy_dict):
+def time_series_from_numpy(trans_list,trade_days,stock_arr,numpy_dict,nump_inds):
     all_stocks = {}
     index = 0
 
+    first_day = trade_days[0]
+    last_day = trade_days[-1]
+
     # go through trade_days, and create a dict of all the tickers
     for trans in trans_list:
-        if (trans.ticker not in all_stocks):
+        if (trans.ticker != None and trans.ticker not in all_stocks):
             all_stocks[trans.ticker] = index
             index += 1
 
+
     a = (len(trade_days), len(all_stocks))
 
-    shares_out = np.zeros(a)
+    eod_prices = []
 
-    curr_portfolio = {}
+    i = 0
+    for stock in all_stocks:
+        curr_ind = numpy_dict[stock]
+        position_arr = stock_arr[curr_ind]
+        position_arr = position_arr[nump_inds[0]:nump_inds[1]+1]
+        eod_prices.append(position_arr)
+
+    num_shares = []
+    args = (all_stocks,numpy_dict)
+    days_holdings = iter_port(trans_list,trade_days,gen_numpy_pos_list,args)
+    num_shares.append(days_holdings)
+
+    return (eod_prices,num_shares)
 
 
+
+
+# args = master_stock_dict
+def get_eod_port_val(curr_port,args):
+    day = curr_port.date
+    master_stock_dict = args
+    curr_port_val = curr_port.cash_holdings
+    for ticker in curr_port.stock_dict:
+        curr_port_val += ( curr_port.stock_dict[ticker].num_shares * master_stock_dict[ticker][day])
+    return curr_port_val
+
+
+def iter_port(trans_data,trade_days,lam,args):
+    curr_port = Portfolio(trade_days[0])
+    curr_port.add_transaction(trans_data[0])
+
+    next_ind = 1
+    output = []
+
+    for day in trade_days:
+
+        # if there was a transaction on the day, update curr_port with all of the days transactions
+        while(next_ind<len(trans_data) and day == trans_data[next_ind].date):
+            curr_port.add_transaction(trans_data[next_ind])
+            next_ind +=1
+        curr_port.date = day
+        output.append(lam(curr_port,args))
+    return output
 
 def time_portfolio_list():
     # For CR Performance history, portfolio list takes up 360755 bytes and works
     # in 0.061 seconds (looking for the size of port_list brings this up to about .1 second)
+
+    # by not using portfolio_list time takes 0.006 seconds a 10x speedup
 
     master_df = pd.read_parquet('master_df.parquet.gzip')
     # transform TDAMERITRADE csv data into a standardized transaction data format
@@ -430,6 +488,9 @@ def time_portfolio_list():
     master_stock_dict = gen_stock_hash(master_df,trade_days)
 
     return(transaction_data,trade_days,master_stock_dict)
+
+
+
 
 def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 
@@ -446,7 +507,6 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
             curr_port.add_transaction(trans_data[next_ind])
             next_ind +=1
 
-
         #calculate the closing portfolio value
         curr_port_val = curr_port.cash_holdings
         for ticker in curr_port.stock_dict:
@@ -457,8 +517,11 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 
 # MAIN:
 
-#out_tuple = time_portfolio_list()
-#cProfile.run('time_series_from_portlist(out_tuple[0],out_tuple[1],out_tuple[2])')
+#out = time_portfolio_list()
+#iter_port(out[0],out[1],get_eod_port_val,out[2])
+#cProfile.run('time_series_from_trans(out[0],out[1],out[2])')
 
-out = time_portfolio_list()
-cProfile.run('time_series_from_trans(out[0],out[1],out[2])')
+out = create_numpy_stockpricearray()
+both_matrices = time_series_from_numpy(out[0],out[1],out[2],out[3],out[4])
+
+print(both_matrices[0])
