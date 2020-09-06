@@ -14,82 +14,25 @@ import sys
 import inspect
 
 
-
-
 import pathlib
 import math
 from datetime import date
 from datetime import timedelta
-import copy
 
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
-
-
-
-
 # TODO:
 
-# If going with stock_dict, write a function that takes in a transaction list,daterange,lambda
-
 # After:
-# Compare to Monthly Statements
 # get performance attribution
 # save stock data
 # link up API's so that we can look at saved values and hit the cheapest first
 
 
-# Suggested Improvements:
 
-# if csv is iterated backwards, the algo can probably go from 3n -> n
-# create transaction by just passing the row
-# add self.date
-# just pass all the values to the transaction
-
-
-#RISKY STUFF
-# haven't checked return output with broker statements
-# don't know the best way to create a pathvariable
-
-
-def get_size(obj, seen=None):
-    """Recursively finds size of objects in bytes"""
-    size = sys.getsizeof(obj)
-    if seen is None:
-        seen = set()
-    obj_id = id(obj)
-    if obj_id in seen:
-        return 0
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
-    seen.add(obj_id)
-    if hasattr(obj, '__dict__'):
-        for cls in obj.__class__.__mro__:
-            if '__dict__' in cls.__dict__:
-                d = cls.__dict__['__dict__']
-                if inspect.isgetsetdescriptor(d) or inspect.ismemberdescriptor(d):
-                    size += get_size(obj.__dict__, seen)
-                break
-    if isinstance(obj, dict):
-        size += sum((get_size(v, seen) for v in obj.values()))
-        size += sum((get_size(k, seen) for k in obj.keys()))
-    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
-        size += sum((get_size(i, seen) for i in obj))
-
-    if hasattr(obj, '__slots__'): # can have __slots__ with __dict__
-        size += sum(get_size(getattr(obj, s), seen) for s in obj.__slots__ if hasattr(obj, s))
-
-    return size
-
-
-# look at sizeof objects
-# https://stackoverflow.com/questions/28655004/how-to-calculate-the-number-of-bytes-stored-in-object
-
-# how to use python to find the path
-# https://stackoverflow.com/questions/3430372/how-do-i-get-the-full-path-of-the-current-files-directory
 
 # this inner function takes the excel date and outputs a python datetime
 def excel_date_to_datetime(excel_date: str,curr_year: int)->date:
@@ -245,34 +188,6 @@ def parseTDtransactions ()->list:
     transaction_list.reverse()
     return(transaction_list)
 
-# take a transaction dictionary and output a list of the end of day values for:
-# all the stocks held
-# the cash held
-# the total portfolio value
-
-def gen_daily_holdings(transaction_list: list)->list:
-
-    portfolio_list = []
-
-    for trans in transaction_list:
-        if (len(portfolio_list)==0):
-            new_portfolio = Portfolio(trans.date)
-            new_portfolio.add_transaction(trans)
-            portfolio_list.append(new_portfolio)
-            #print(portfolio_list[-1].date)
-
-        elif(trans.date == portfolio_list[-1].date):
-            portfolio_list[-1].add_transaction(trans)
-            #print(portfolio_list[-1].date)
-        else:
-            new_portfolio = copy.deepcopy(portfolio_list[-1])
-            new_portfolio.add_transaction(trans)
-            portfolio_list.append(new_portfolio)
-
-
-            #print(portfolio_list[-1].date)
-    return portfolio_list
-
 # generates a list of open positions and closed positions
 def get_all_positions(port_list: list)->list:
     full_list = port_list[-1].closed_positions
@@ -283,6 +198,19 @@ def get_all_positions(port_list: list)->list:
         full_list.append((i,stock_dict[i].first_purchase_date,date.today()))
 
     return (full_list)
+
+def binary_search(d_list,val):
+    def search_func(d_list,val,first,last):
+        mid_ind = (first+last)//2
+        mid = d_list[mid_ind]
+
+        if (val < mid):
+            return search_func(d_list,val,first,mid_ind-1)
+        elif (val > mid):
+            return search_func(d_list,val,mid_ind+1,last)
+        else:
+            return mid_ind
+    return search_func(d_list,val,0,len(d_list)-1)
 
 def gen_hist_stockdf(all_trades):
 
@@ -335,20 +263,6 @@ def gen_stock_hash(master_df,trade_days):
 
     return master_stock_dict
 
-def binary_search(d_list,val):
-  def search_func(d_list,val,first,last):
-        mid_ind = (first+last)//2
-        mid = d_list[mid_ind]
-
-        if (val < mid):
-            return search_func(d_list,val,first,mid_ind-1)
-        elif (val > mid):
-            return search_func(d_list,val,mid_ind+1,last)
-        else:
-            return mid_ind
-
-  return search_func(d_list,val,0,len(d_list)-1)
-
 
 
 def create_numpy_stockpricearray():
@@ -359,7 +273,6 @@ def create_numpy_stockpricearray():
 
 
         #print(trans.date,trans.name, trans.ticker, trans.amount)
-
     #print(stocks_held)
     trade_days = np.array(trade_days)
 
@@ -372,9 +285,8 @@ def create_numpy_stockpricearray():
     last_ind = binary_search(index_arr,trade_days[-1])
     nump_inds = (first_ind,last_ind)
 
+
     #print(master_df)
-
-
     #print(stock_arr)
     #print(master_df)
     numpy_dict = {}
@@ -382,11 +294,6 @@ def create_numpy_stockpricearray():
         numpy_dict[master_df.columns[i]] = i
 
     return(trans_list,trade_days,stock_arr,numpy_dict,nump_inds)
-
-
-
-
-
 
 
 def gen_numpy_pos_list(curr_port,args):
@@ -437,10 +344,10 @@ def time_series_from_numpy(trans_list,trade_days,stock_arr,numpy_dict,nump_inds)
 
 
     args = (all_stocks,numpy_dict)
-    days_holdings = iter_port(trans_list,trade_days,gen_numpy_pos_list,args)
+    num_shares = iter_port(trans_list,trade_days,gen_numpy_pos_list,args)
 
-    num_shares = np.stack(days_holdings)
-
+    #turns days_holdings from a python list to a numpy array
+    # iter_port should probably just return a numpy array
     return (eod_prices,num_shares)
 
 
@@ -471,6 +378,9 @@ def iter_port(trans_data,trade_days,lam,args):
             next_ind +=1
         curr_port.date = day
         output.append(lam(curr_port,args))
+
+
+    output = np.stack(output)
     return output
 
 def time_portfolio_list():
@@ -483,10 +393,8 @@ def time_portfolio_list():
     # transform TDAMERITRADE csv data into a standardized transaction data format
     transaction_data = parseTDtransactions()
 
-    start = time.time()
+
     trade_days = get_trade_days(transaction_data,master_df)
-    end = time.time()
-    print( "get_trade_days took: " , end-start, " seconds")
 
     global master_stock_dict
     master_stock_dict = gen_stock_hash(master_df,trade_days)
@@ -516,16 +424,23 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
         for ticker in curr_port.stock_dict:
             curr_port_val += ( curr_port.stock_dict[ticker].num_shares * master_stock_dict[ticker][day])
         output.append(curr_port_val)
-    #print(output)
 
 
 # MAIN:
-
-#out = time_portfolio_list()
-#iter_port(out[0],out[1],get_eod_port_val,out[2])
 #cProfile.run('time_series_from_trans(out[0],out[1],out[2])')
 
-out = create_numpy_stockpricearray()
-both_matrices = time_series_from_numpy(out[0],out[1],out[2],out[3],out[4])
+# this loops through all transactions in 0.007 seconds
+# to output in type numpy array takes this to 0.01 seconds
 
-print((both_matrices[1][0]),both_matrices[1][1])
+out = time_portfolio_list()
+returns = iter_port(out[0],out[1],get_eod_port_val,out[2])
+print(returns)
+#cProfile.run('iter_port(out[0],out[1],get_eod_port_val,out[2])')
+
+
+# this takes 0.017 seconds
+#out = create_numpy_stockpricearray()
+#both_matrices = time_series_from_numpy(out[0],out[1],out[2],out[3],out[4])
+#cProfile.run('time_series_from_numpy(out[0],out[1],out[2],out[3],out[4])')
+
+#print((both_matrices[1][0]),both_matrices[1][1])
