@@ -372,7 +372,7 @@ def create_numpy_stockpricearray():
     last_ind = binary_search(index_arr,trade_days[-1])
     nump_inds = (first_ind,last_ind)
 
-    print(master_df)
+    #print(master_df)
 
 
     #print(stock_arr)
@@ -420,22 +420,26 @@ def time_series_from_numpy(trans_list,trade_days,stock_arr,numpy_dict,nump_inds)
             all_stocks[trans.ticker] = index
             index += 1
 
+    #Todo: make eod_prices into a numpy array
 
-    a = (len(trade_days), len(all_stocks))
 
-    eod_prices = []
+    a = (len(all_stocks)+1, len(trade_days))
+    eod_prices = np.zeros(a)
 
-    i = 0
+    i = 1
     for stock in all_stocks:
         curr_ind = numpy_dict[stock]
         position_arr = stock_arr[curr_ind]
         position_arr = position_arr[nump_inds[0]:nump_inds[1]+1]
-        eod_prices.append(position_arr)
+        eod_prices[i] = position_arr
+        i +=1
+    eod_prices = eod_prices.transpose()
 
-    num_shares = []
+
     args = (all_stocks,numpy_dict)
     days_holdings = iter_port(trans_list,trade_days,gen_numpy_pos_list,args)
-    num_shares.append(days_holdings)
+
+    num_shares = np.stack(days_holdings)
 
     return (eod_prices,num_shares)
 
@@ -455,9 +459,9 @@ def get_eod_port_val(curr_port,args):
 def iter_port(trans_data,trade_days,lam,args):
     curr_port = Portfolio(trade_days[0])
     curr_port.add_transaction(trans_data[0])
+    output = []
 
     next_ind = 1
-    output = []
 
     for day in trade_days:
 
@@ -524,4 +528,4 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 out = create_numpy_stockpricearray()
 both_matrices = time_series_from_numpy(out[0],out[1],out[2],out[3],out[4])
 
-print(both_matrices[0])
+print((both_matrices[1][0]),both_matrices[1][1])
