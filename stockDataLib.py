@@ -1,13 +1,29 @@
 
-__author__ = 'gianluca'
+__author__ = 'gianluca and vishy'
+
+from datetime import date
 
 
 # TODO:
 
-# at some point need to add API functoins for IEX cloud
+# at some point need to add API functions for IEX cloud
 
 
 import pandas_datareader as pdr
+
+def newGetStockHash(t_data):
+    start_date = t_data[0].date
+    end_date = t_data[-1].date
+
+    if (end_date.year == date.today().year):
+        end_date = date.today()
+
+    print(start_date)
+    print(end_date)
+
+    # call tiingo api.
+    # hash the json response and get a list of all the trading days
+    # return the trade day list and the stock price dictionary
 
 # pulls closing price data from yahoo fianance
 def get_close_yahoo(stock_list, start, end):

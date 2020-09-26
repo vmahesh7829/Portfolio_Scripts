@@ -1,7 +1,7 @@
 __author__ = 'Viswesh'
 
 #IMPORTS
-from api_pulls import *
+from stockDataLib import *
 import pandas_datareader as pdr
 
 from collections.abc import Mapping, Container
@@ -240,22 +240,15 @@ def iter_port(trans_data,trade_days,lam,args):
     return output
 
 def time_portfolio_list():
-    # For CR Performance history, portfolio list takes up 360755 bytes and works
-    # in 0.061 seconds (looking for the size of port_list brings this up to about .1 second)
 
-    # by not using portfolio_list time takes 0.006 seconds a 10x speedup
 
-    master_df = pd.read_parquet('master_df.parquet.gzip')
     # transform TDAMERITRADE csv data into a standardized transaction data format
     transaction_data = parseTDtransactions()
+    newGetStockHash(transaction_data)
 
 
-    trade_days = get_trade_days(transaction_data,master_df)
 
-    global master_stock_dict
-    master_stock_dict = gen_stock_hash(master_df,trade_days)
-
-    return(transaction_data,trade_days,master_stock_dict)
+    return(transaction_data)
 
 
 
@@ -294,8 +287,6 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 # to output in type numpy array takes this to 0.01 seconds
 
 out = time_portfolio_list()
-returns = time_series_from_trans(out[0],out[1],out[2])
-print(returns)
 
 
 # This creates a matrix of positions and a matrix of stock prices
