@@ -5,7 +5,6 @@ from api_pulls import *
 import pandas_datareader as pdr
 
 from collections.abc import Mapping, Container
-from sys import getsizeof
 
 import cProfile
 import re
@@ -20,8 +19,6 @@ from datetime import date
 from datetime import timedelta
 
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 
 # TODO:
@@ -30,8 +27,6 @@ import numpy as np
 # get performance attribution
 # save stock data
 # link up API's so that we can look at saved values and hit the cheapest first
-
-
 
 
 # this inner function takes the excel date and outputs a python datetime
@@ -48,6 +43,19 @@ def excel_date_to_datetime(excel_date: str,curr_year: int)->date:
     out_date[2] = int(out_date[2]) + year_increment
 
     return date(out_date[2], int(out_date[0]), int(out_date[1]) )
+
+def binary_search(d_list,val):
+    def search_func(d_list,val,first,last):
+        mid_ind = (first+last)//2
+        mid = d_list[mid_ind]
+
+        if (val < mid):
+            return search_func(d_list,val,first,mid_ind-1)
+        elif (val > mid):
+            return search_func(d_list,val,mid_ind+1,last)
+        else:
+            return mid_ind
+    return search_func(d_list,val,0,len(d_list)-1)
 
 
 class Portfolio():
@@ -188,55 +196,6 @@ def parseTDtransactions ()->list:
     transaction_list.reverse()
     return(transaction_list)
 
-# generates a list of open positions and closed positions
-def get_all_positions(port_list: list)->list:
-    full_list = port_list[-1].closed_positions
-
-    curr_portfolio = port_list[-1]
-    stock_dict = curr_portfolio.stock_dict
-    for i in stock_dict:
-        full_list.append((i,stock_dict[i].first_purchase_date,date.today()))
-
-    return (full_list)
-
-def binary_search(d_list,val):
-    def search_func(d_list,val,first,last):
-        mid_ind = (first+last)//2
-        mid = d_list[mid_ind]
-
-        if (val < mid):
-            return search_func(d_list,val,first,mid_ind-1)
-        elif (val > mid):
-            return search_func(d_list,val,mid_ind+1,last)
-        else:
-            return mid_ind
-    return search_func(d_list,val,0,len(d_list)-1)
-
-def gen_hist_stockdf(all_trades):
-
-    # to convert the timestamp to a python datetime:
-    # master_df.index = map(lambda x: x.date(), master_df.index)
-    first_day = "2016-01-01"
-    last_day = "2020-08-25"
-
-    ticker_set = set()
-
-    for ticker in all_trades:
-        if ticker[0] not in ticker_set:
-            ticker_set.add(ticker[0])
-
-    V_col = get_adj_close_yahoo('V',first_day,last_day)
-    master_df = pd.DataFrame(V_col)
-    master_df = master_df.rename(columns={"Adj Close": "V"})
-
-    for ticker in ticker_set:
-        next_col = get_adj_close_yahoo(ticker,first_day,last_day)
-        master_df[ticker] = next_col
-
-    master_df.to_parquet('master_df.parquet.gzip',compression='gzip')
-
-
-    df_from_memory = pd.read_parquet('master_df.parquet.gzip')
 
 # this function takes the transaction list and returns a list of every
 # trading day. The first trading day can be accessed: out[0] last: out[-1]
@@ -249,109 +208,6 @@ def get_trade_days(trans_list,master_df):
     date_list = date_list.tolist()
 
     return (date_list[date_list.index(start_date):])
-
-
-def gen_stock_hash(master_df,trade_days):
-
-    master_stock_dict = {}
-    ind_list = master_df.index.tolist()
-
-    for (columnName, columnData) in master_df.iteritems():
-        master_stock_dict[columnName] = {}
-        for day in trade_days:
-            master_stock_dict[columnName][day] = master_df[columnName][day]
-
-    return master_stock_dict
-
-
-
-def create_numpy_stockpricearray():
-    trans_list = parseTDtransactions()
-    master_df = pd.read_parquet('master_df.parquet.gzip')
-
-    trade_days = get_trade_days(trans_list,master_df)
-
-
-        #print(trans.date,trans.name, trans.ticker, trans.amount)
-    #print(stocks_held)
-    trade_days = np.array(trade_days)
-
-    stock_arr = pd.DataFrame(master_df).to_numpy()
-    stock_arr = stock_arr.transpose()
-
-    index_arr = master_df.index
-
-    first_ind = binary_search(index_arr,trade_days[0])
-    last_ind = binary_search(index_arr,trade_days[-1])
-    nump_inds = (first_ind,last_ind)
-
-
-    #print(master_df)
-    #print(stock_arr)
-    #print(master_df)
-    numpy_dict = {}
-    for i in range (len(master_df.columns)):
-        numpy_dict[master_df.columns[i]] = i
-
-    return(trans_list,trade_days,stock_arr,numpy_dict,nump_inds)
-
-
-def gen_numpy_pos_list(curr_port,args):
-    all_stocks = args[0]
-    numpy_dict = args[1]
-
-    nump_arr = np.zeros((1, len(all_stocks)+1))
-    nump_arr = nump_arr[0]
-
-    nump_arr[0] = curr_port.cash_holdings
-
-    for stock in all_stocks:
-        s_ind = numpy_dict[stock]
-        if (stock in curr_port.stock_dict):
-            nump_arr[s_ind+1] = curr_port.stock_dict[stock].num_shares
-
-    return nump_arr
-
-
-# take in a transaction_list,trade_days,
-def time_series_from_numpy(trans_list,trade_days,stock_arr,numpy_dict,nump_inds):
-    all_stocks = {}
-    index = 0
-
-    first_day = trade_days[0]
-    last_day = trade_days[-1]
-
-    # go through trade_days, and create a dict of all the tickers
-    for trans in trans_list:
-        if (trans.ticker != None and trans.ticker not in all_stocks):
-            all_stocks[trans.ticker] = index
-            index += 1
-
-    #Todo: make eod_prices into a numpy array
-
-
-    a = (len(all_stocks)+1, len(trade_days))
-    eod_prices = np.zeros(a)
-
-    i = 1
-    for stock in all_stocks:
-        curr_ind = numpy_dict[stock]
-        position_arr = stock_arr[curr_ind]
-        position_arr = position_arr[nump_inds[0]:nump_inds[1]+1]
-        eod_prices[i] = position_arr
-        i +=1
-    eod_prices = eod_prices.transpose()
-
-
-    args = (all_stocks,numpy_dict)
-    num_shares = iter_port(trans_list,trade_days,gen_numpy_pos_list,args)
-
-    #turns days_holdings from a python list to a numpy array
-    # iter_port should probably just return a numpy array
-    return (eod_prices,num_shares)
-
-
-
 
 # args = master_stock_dict
 def get_eod_port_val(curr_port,args):
@@ -403,6 +259,8 @@ def time_portfolio_list():
 
 
 
+# Not used anymore. This shows how to loop through transactions to generates
+# portfolio statististics such as EOD value.
 
 def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 
@@ -425,22 +283,36 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
             curr_port_val += ( curr_port.stock_dict[ticker].num_shares * master_stock_dict[ticker][day])
         output.append(curr_port_val)
 
+    for ticker in curr_port.stock_dict:
+        print(ticker,curr_port.stock_dict[ticker].num_shares)
+    return output
+
 
 # MAIN:
-#cProfile.run('time_series_from_trans(out[0],out[1],out[2])')
 
-# this loops through all transactions in 0.007 seconds
+
 # to output in type numpy array takes this to 0.01 seconds
 
 out = time_portfolio_list()
-returns = iter_port(out[0],out[1],get_eod_port_val,out[2])
+returns = time_series_from_trans(out[0],out[1],out[2])
 print(returns)
-#cProfile.run('iter_port(out[0],out[1],get_eod_port_val,out[2])')
 
 
+# This creates a matrix of positions and a matrix of stock prices
 # this takes 0.017 seconds
-#out = create_numpy_stockpricearray()
-#both_matrices = time_series_from_numpy(out[0],out[1],out[2],out[3],out[4])
-#cProfile.run('time_series_from_numpy(out[0],out[1],out[2],out[3],out[4])')
 
+#out = create_numpy_stockpricearray()
+#output = gen_nump_matrices(out[0],out[1],out[2],out[3],out[4])
+#cProfile.run('gen_nump_matrices(out[0],out[1],out[2],out[3],out[4])')
+
+
+
+# not sure if the price data is accurate.
+# jpm has the same price on 2 days
+#master_df = pd.read_parquet('master_df.parquet.gzip')
+#print(output[3])
+#print(output[0][0])
+#print(output[0][1])
+#print(master_df['JPM'][92]) (92 was the index of 5/16/2016)
+#print(master_df['JPM'][93])
 #print((both_matrices[1][0]),both_matrices[1][1])
