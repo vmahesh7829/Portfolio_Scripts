@@ -244,16 +244,31 @@ def time_portfolio_list():
 
     # transform TDAMERITRADE csv data into a standardized transaction data format
     transaction_data = parseTDtransactions()
-    newGetStockHash(transaction_data)
+
+    #get all the tickers in transaction_data
+    all_stocks = set()
+    first_stock = transaction_data[1].ticker
+
+    # go through trade_days, and create a set of all the tickers
+    for trans in transaction_data:
+        if (trans.ticker!= None and trans.ticker not in all_stocks):
+            all_stocks.add(trans.ticker)
+
+
+    stock_dict = newGetStockHash(transaction_data,all_stocks)
+
+    # generate trade_days
+
+    trade_days = []
+    for currDay in stock_dict[first_stock]:
+        trade_days.append(currDay)
+
+
+    return(transaction_data,trade_days,stock_dict)
 
 
 
-    return(transaction_data)
 
-
-
-# Not used anymore. This shows how to loop through transactions to generates
-# portfolio statististics such as EOD value.
 
 def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 
@@ -276,34 +291,10 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
             curr_port_val += ( curr_port.stock_dict[ticker].num_shares * master_stock_dict[ticker][day])
         output.append(curr_port_val)
 
-    for ticker in curr_port.stock_dict:
-        print(ticker,curr_port.stock_dict[ticker].num_shares)
     return output
 
 
 # MAIN:
-
-
-# to output in type numpy array takes this to 0.01 seconds
-
 out = time_portfolio_list()
-
-
-# This creates a matrix of positions and a matrix of stock prices
-# this takes 0.017 seconds
-
-#out = create_numpy_stockpricearray()
-#output = gen_nump_matrices(out[0],out[1],out[2],out[3],out[4])
-#cProfile.run('gen_nump_matrices(out[0],out[1],out[2],out[3],out[4])')
-
-
-
-# not sure if the price data is accurate.
-# jpm has the same price on 2 days
-#master_df = pd.read_parquet('master_df.parquet.gzip')
-#print(output[3])
-#print(output[0][0])
-#print(output[0][1])
-#print(master_df['JPM'][92]) (92 was the index of 5/16/2016)
-#print(master_df['JPM'][93])
-#print((both_matrices[1][0]),both_matrices[1][1])
+output = time_series_from_trans(out[0],out[1],out[2])
+print(output)

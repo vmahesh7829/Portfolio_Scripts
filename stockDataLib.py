@@ -2,26 +2,21 @@
 __author__ = 'gianluca and vishy'
 
 from datetime import date
-
-
-# TODO:
-
-# at some point need to add API functions for IEX cloud
-
-
 import pandas_datareader as pdr
+from api_pulls import *
 
-def newGetStockHash(t_data):
+def newGetStockHash(t_data,all_stocks):
     start_date = t_data[0].date
     end_date = t_data[-1].date
 
     if (end_date.year == date.today().year):
         end_date = date.today()
 
-    print(start_date)
-    print(end_date)
+    stockDict = getStockDict(all_stocks,start_date,end_date)
 
-    # call tiingo api.
+    return stockDict
+
+    # call tiingo api. (send ticker-list start date and end date)
     # hash the json response and get a list of all the trading days
     # return the trade day list and the stock price dictionary
 
