@@ -11,7 +11,7 @@ from datetime import date
 
 def genTiingoDict(ticker: str, sDate, eDate):
 
-    token = "&token=a6051dc9e9d1140d8322de2b99755165d84f9671"
+    token = *****
 
 
     reqBody = "https://api.tiingo.com/tiingo/daily/"+ticker+'/prices?startDate='
