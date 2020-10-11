@@ -255,7 +255,7 @@ def time_portfolio_list():
             all_stocks.add(trans.ticker)
 
 
-    stock_dict = newGetStockHash(transaction_data,all_stocks)
+    stock_dict = GetStockHash(transaction_data,all_stocks)
 
     # generate trade_days
 
