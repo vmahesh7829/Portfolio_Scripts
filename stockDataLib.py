@@ -1,7 +1,6 @@
 __author__ = 'gianluca and vishy'
 
 from datetime import date
-import pandas_datareader as pdr
 from api_pulls import *
 
 def GetStockHash(t_data,all_stocks):

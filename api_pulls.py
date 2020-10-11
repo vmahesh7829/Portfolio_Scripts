@@ -3,6 +3,20 @@ import datetime
 from datetime import date
 import pymongo
 
+
+import cProfile
+import re
+
+from tiingo import TiingoClient
+
+
+# IQfeed could be a good source for 100 dollar per month
+# marketstack is 10 dollars per month and 10k request per month (sourced from tiingo)
+# https://eodhistoricaldata.com/ 20 permonth. Can basically get 10k from API as well
+# online people say its sourced from yahoo finance
+
+# make sure to check for old tickers first
+
 # the api has a column field that lowers the amount of response data
 
 
@@ -70,3 +84,37 @@ def getStockDict(stockSet: set,sDate,eDate):
     # (need to understand the diff between this and adjusted close)
     post_id = posts.insert_one(dbDict).inserted_id
     return stock_dict
+
+
+# using the library is waay faster. Probably because only 1 auth is needed
+def testTiingo():
+
+    stockList = ["MO","ANDV","V","JPM","NVDA","AMD","NOC","LMT"]
+    sDate = "01-01-2016"
+    eDate = "08-31-2020"
+
+    config = {}
+
+    # To reuse the same HTTP Session across API calls (and have better performance), include a session key.
+    config['session'] = True
+
+    # If you don't have your API key as an environment variable,
+    # pass it in via a configuration dictionary.
+    config['api_key'] = "a6051dc9e9d1140d8322de2b99755165d84f9671"
+
+    # Initialize
+    client = TiingoClient(config)
+
+    for stock in stockList:
+
+        historical_prices = client.get_ticker_price(stock,
+                                                fmt='json',
+                                                startDate='2016-01-01',
+                                                endDate='2020-08-31',
+                                                frequency='daily')
+
+        #print(historical_prices)
+
+
+
+cProfile.run('testTiingo()')

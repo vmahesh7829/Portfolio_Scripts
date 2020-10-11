@@ -2,7 +2,6 @@ __author__ = 'Viswesh'
 
 #IMPORTS
 from stockDataLib import *
-import pandas_datareader as pdr
 
 from collections.abc import Mapping, Container
 

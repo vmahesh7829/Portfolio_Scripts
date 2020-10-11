@@ -5,21 +5,20 @@ __author__= 'gianluca'
 import pandas
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas_datareader as pdr
 from datetime import date
 
 # importing functions from other files
-from gen_date_range import * 
+from gen_date_range import *
 from historical_fund_data import *
 from api_pulls import *
 
-# columns to add to output 
-# contribution to return: weight * return 
+# columns to add to output
+# contribution to return: weight * return
 # excess return
 
 #FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS
 
-def total_ret(x): 
+def total_ret(x):
     # produces total price return
     # mostly used for alpha and information ratio
     # compounds daily returns to get cumulative return
@@ -43,11 +42,11 @@ def beta(x, indx):
 def alpha(ret, rf, beta, erp):
     # E(r) = alpha + risk free + beta * (equity risk premium)
     alpha= ret - rf - (beta*erp)
-    
+
     return alpha
 
 
-def information_ratio(TRx, TRindx, x, indx): 
+def information_ratio(TRx, TRindx, x, indx):
     # takes in two return lists and calculates information ratio
     diff_ret= []
     for i in range(len(x)): # can't add subtract lists
@@ -71,15 +70,15 @@ def gen_shares_df(portfolio_list):
     breaker= 1000
 
     # this iterates through the portfolio list
-    for i in portfolio_list: 
-        #print(i) 
+    for i in portfolio_list:
+        #print(i)
         #print(i.date)
         #print(i.cash_holdings)
 
         if counter== 0:
             # this initiates a dataframe for share counts
             shares_df= pandas.DataFrame(columns= ['cash'], index= [i.date])
-        
+
         else:
             # following initiation, we append new portfolios
             # the new row has same columns, NEW date, and values initiate at NaN
@@ -89,14 +88,14 @@ def gen_shares_df(portfolio_list):
 
         # adding cash position: this comes from inital object, now the share attributes
         shares_df.at[i.date, 'cash']= i.cash_holdings
-        
+
         # this iterates through the stock dictionary / attributes
         for key, value in i.stock_dict.items():
             # these are all of the stock item attirbutes
             #print(key, value.ticker, value.num_shares, value.close_price, value.first_purchase_date)
 
             #if the stock already exists in history, update or maintain the number of shares for date
-            if key in shares_df.columns: 
+            if key in shares_df.columns:
                 shares_df.at[i.date,key]= value.num_shares
             #if the stock does has no history, add to the dataframe, then add shares for said daite
             else:
@@ -114,7 +113,7 @@ def gen_shares_df(portfolio_list):
     return shares_df
 
 
-# MAIN: 
+# MAIN:
 
 if __name__ == "__main__":
 
@@ -148,14 +147,14 @@ if __name__ == "__main__":
 
     rf= 0.02
     port_ret= total_ret(port)
-    indx_ret= total_ret(indx) 
+    indx_ret= total_ret(indx)
     erp= indx_ret-rf
 
     beta= beta(x= port, indx=indx)
     alpha= alpha(ret=port_ret, rf=rf, beta=beta, erp=erp)
     info_ratio= information_ratio(TRx= port_ret, TRindx= indx_ret, x=port, indx=indx)
 
-    
+
     # printing output of results
     print('Port ret: ', port_ret)
     print('Indx ret: ', indx_ret)
@@ -217,9 +216,9 @@ if __name__ == "__main__":
 
     shares_dataframe= pandas.DataFrame(columns=close.columns, index=close.index)
     shares_dataframe.at['date':'date', 'ticker':'ticker']= 10
-    
-    
-    
+
+
+
     # CHECKS CHECKS CHECKS CHECKS CHECKS CHECKS CHECKS
     # print(np.cov(rets['SPY'], rets['AAPL'])[0,1])
     # print(np.cov(rets['SPY'], rets['SPY'], ddof=1))
@@ -246,7 +245,7 @@ if __name__ == "__main__":
     # excess_returns= returns-returns['SPY'] doesn't work
 
     output_data= pandas.DataFrame(columns= ['Returns', 'Betas', 'Alphas'], index= cols_names)
-    output_data['Returns']= (100*returns.to_numpy()[0]).round(2) 
+    output_data['Returns']= (100*returns.to_numpy()[0]).round(2)
     output_data['Betas']= betas.round(2)
     output_data['Alphas']= (100*alphas).round(2)
 
