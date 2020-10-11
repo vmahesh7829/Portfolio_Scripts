@@ -250,10 +250,13 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
             curr_port_val += ( curr_port.stock_dict[ticker].num_shares * master_stock_dict[ticker][day])
         output.append(curr_port_val)
 
+
+    print(output)
+    print(trade_days[0])
+    print(trade_days[-1])
     return output
 
 
 # MAIN:
 out = time_portfolio_list()
 output = time_series_from_trans(out[0],out[1],out[2])
-print(output)

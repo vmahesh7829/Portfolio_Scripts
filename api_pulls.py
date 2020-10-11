@@ -114,7 +114,3 @@ def testTiingo():
                                                 frequency='daily')
 
         #print(historical_prices)
-
-
-
-cProfile.run('testTiingo()')
