@@ -30,7 +30,7 @@ def genTiingoDict(ticker: str, sDate, eDate):
 
 
     reqBody = "https://api.tiingo.com/tiingo/daily/"+ticker+'/prices?startDate='
-    reqBody = reqBody +sDate+ '&endDate=' + eDate+token+"&columns=adjClose,close"
+    reqBody = reqBody +sDate+ '&endDate=' + eDate+token+"&columns=close"
 
     headers = {
         'Content-Type': 'application/json'
@@ -48,7 +48,7 @@ def genTiingoDict(ticker: str, sDate, eDate):
 
         # set date key to be a date object
         in_date = date(int(in_date[0:4]),int(in_date[5:7]),int(in_date[8:10]))
-        stock_Dict[in_date] = currDay['adjClose']
+        stock_Dict[in_date] = currDay['close']
 
         # push to db with key as a date string
         closeDict[currDay['date'][0:10]]= currDay['close']
