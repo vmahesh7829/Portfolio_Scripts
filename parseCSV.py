@@ -23,9 +23,10 @@ import numpy as np
 
 # TODO:
 
-# get the api call to store into mongodb
-# get the api calls to only request data thats not saved locally
-# write a function that gets a ticker and a day and returns a price
+# After:
+# get performance attribution
+# save stock data
+# link up API's so that we can look at saved values and hit the cheapest first
 
 
 # this inner function takes the excel date and outputs a python datetime
@@ -187,6 +188,7 @@ def parseTDtransactions ()->list:
 
                 curr_Transaction = Transaction(curr_date)
                 curr_Transaction.addTdTransaction(row)
+
                 transaction_list.append(curr_Transaction)
 
         curr_year -=1
@@ -195,8 +197,50 @@ def parseTDtransactions ()->list:
     return(transaction_list)
 
 
+# this function takes the transaction list and returns a list of every
+# trading day. The first trading day can be accessed: out[0] last: out[-1]
+def get_trade_days(trans_list,master_df):
+    start_date = trans_list[0].date
+    #print(trans_list[-1].date)
+
+
+    date_list = master_df.index
+    date_list = date_list.tolist()
+
+    return (date_list[date_list.index(start_date):])
+
+# args = master_stock_dict
+def get_eod_port_val(curr_port,args):
+    day = curr_port.date
+    master_stock_dict = args
+    curr_port_val = curr_port.cash_holdings
+    for ticker in curr_port.stock_dict:
+        curr_port_val += ( curr_port.stock_dict[ticker].num_shares * master_stock_dict[ticker][day])
+    return curr_port_val
+
+
+def iter_port(trans_data,trade_days,lam,args):
+    curr_port = Portfolio(trade_days[0])
+    curr_port.add_transaction(trans_data[0])
+    output = []
+
+    next_ind = 1
+
+    for day in trade_days:
+
+        # if there was a transaction on the day, update curr_port with all of the days transactions
+        while(next_ind<len(trans_data) and day == trans_data[next_ind].date):
+            curr_port.add_transaction(trans_data[next_ind])
+            next_ind +=1
+        curr_port.date = day
+        output.append(lam(curr_port,args))
+
+
+    output = np.stack(output)
+    return output
 
 def time_portfolio_list():
+
 
     # transform TDAMERITRADE csv data into a standardized transaction data format
     transaction_data = parseTDtransactions()
@@ -210,23 +254,20 @@ def time_portfolio_list():
         if (trans.ticker!= None and trans.ticker not in all_stocks):
             all_stocks.add(trans.ticker)
 
-    # this should call the api and hash everything that's not in db
-    stock_dict = getStockHash(transaction_data,all_stocks)
 
-<<<<<<< HEAD:historical_fund_data.py
     stock_dict = GetStockHash(transaction_data,all_stocks)
 
     # generate trade_days
 
-=======
-    # this should check the db dict and the new dict and get a list of all trading days
->>>>>>> a9a2990b2a2aa3070ef021ed674037378f71ea91:parseCSV.py
     trade_days = []
     for currDay in stock_dict[first_stock]:
         trade_days.append(currDay)
 
-    # stock_dict shouldn't have to be passed here
+
     return(transaction_data,trade_days,stock_dict)
+
+
+
 
 
 def time_series_from_trans(trans_data,trade_days,master_stock_dict):
@@ -245,7 +286,6 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
             next_ind +=1
 
         #calculate the closing portfolio value
-        # there shouldn't be a master stock dict. The function call should get the stockprice
         curr_port_val = curr_port.cash_holdings
         for ticker in curr_port.stock_dict:
             curr_port_val += ( curr_port.stock_dict[ticker].num_shares * master_stock_dict[ticker][day])
@@ -257,4 +297,4 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 # MAIN:
 out = time_portfolio_list()
 output = time_series_from_trans(out[0],out[1],out[2])
-#print(output)
+print(output)

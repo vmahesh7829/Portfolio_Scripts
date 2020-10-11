@@ -58,5 +58,4 @@ def getStockDict(stockSet: set,sDate,eDate):
         dbDict[stock] = out[1]
 
     post_id = posts.insert_one(dbDict).inserted_id
-    print(dbDict)
     return stock_dict
