@@ -23,10 +23,12 @@ import numpy as np
 
 # TODO:
 
-# After:
-# get performance attribution
-# save stock data
-# link up API's so that we can look at saved values and hit the cheapest first
+# output the numpy arrays we need to generate some stats
+# clean this up so StockDataLib can be called for stock prices get rid of the
+# stock dict passing
+
+# just tell the library which stocks are needed, then ask for them.
+# let the library handle the details
 
 
 # this inner function takes the excel date and outputs a python datetime
@@ -196,48 +198,6 @@ def parseTDtransactions ()->list:
     transaction_list.reverse()
     return(transaction_list)
 
-
-# this function takes the transaction list and returns a list of every
-# trading day. The first trading day can be accessed: out[0] last: out[-1]
-def get_trade_days(trans_list,master_df):
-    start_date = trans_list[0].date
-    #print(trans_list[-1].date)
-
-
-    date_list = master_df.index
-    date_list = date_list.tolist()
-
-    return (date_list[date_list.index(start_date):])
-
-# args = master_stock_dict
-def get_eod_port_val(curr_port,args):
-    day = curr_port.date
-    master_stock_dict = args
-    curr_port_val = curr_port.cash_holdings
-    for ticker in curr_port.stock_dict:
-        curr_port_val += ( curr_port.stock_dict[ticker].num_shares * master_stock_dict[ticker][day])
-    return curr_port_val
-
-
-def iter_port(trans_data,trade_days,lam,args):
-    curr_port = Portfolio(trade_days[0])
-    curr_port.add_transaction(trans_data[0])
-    output = []
-
-    next_ind = 1
-
-    for day in trade_days:
-
-        # if there was a transaction on the day, update curr_port with all of the days transactions
-        while(next_ind<len(trans_data) and day == trans_data[next_ind].date):
-            curr_port.add_transaction(trans_data[next_ind])
-            next_ind +=1
-        curr_port.date = day
-        output.append(lam(curr_port,args))
-
-
-    output = np.stack(output)
-    return output
 
 def time_portfolio_list():
 
