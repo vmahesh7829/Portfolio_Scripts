@@ -31,9 +31,12 @@ def genTiingoDict(ticker: str, sDate, eDate):
     for currDay in pData:
 
         in_date = currDay['date']
+
+        # set date key to be a date object
         in_date = date(int(in_date[0:4]),int(in_date[5:7]),int(in_date[8:10]))
         stock_Dict[in_date] = currDay['adjClose']
 
+        # push to db with key as a date string
         closeDict[currDay['date'][0:10]]= currDay['close']
 
         # also save close price to database
@@ -41,10 +44,13 @@ def genTiingoDict(ticker: str, sDate, eDate):
 
     return (stock_Dict,closeDict)
 
+# sDate and eDate are of type Datetime
 def getStockDict(stockSet: set,sDate,eDate):
     client = pymongo.MongoClient("mongodb+srv://DyAQ0qSyAdi1Udg9:DyAQ0qSyAdi1Udg9@apidatabank.drr3k.mongodb.net/historicalStockPrices?retryWrites=true&w=majority")
     db = client.historicalStockPrices
     posts = db.tiingoClose
+
+
 
     sDate = sDate.isoformat()
     eDate = eDate.isoformat()
@@ -52,10 +58,15 @@ def getStockDict(stockSet: set,sDate,eDate):
     stock_dict = {}
     dbDict = {}
 
+    counter = 1
     for stock in stockSet:
         out = genTiingoDict(stock,sDate,eDate)
         stock_dict[stock] = out[0]
         dbDict[stock] = out[1]
+        print(f"Tiingo Call {counter} completed.")
+        counter +=1
 
+    # saving close data to the database
+    # (need to understand the diff between this and adjusted close)
     post_id = posts.insert_one(dbDict).inserted_id
     return stock_dict
