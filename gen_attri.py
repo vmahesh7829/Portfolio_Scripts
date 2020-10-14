@@ -1,16 +1,23 @@
 
 __author__= 'gianluca'
 
-# importing modules
-import pandas
+# imports
 import numpy as np
-import matplotlib.pyplot as plt
+import requests
+import datetime
 from datetime import date
 
+
+import cProfile
+import re
+from tiingo import TiingoClient
+
+
 # importing functions from other files
+from parseCSV import *
 from gen_date_range import *
-from historical_fund_data import *
 from api_pulls import *
+
 
 # columns to add to output
 # contribution to return: weight * return
@@ -18,16 +25,77 @@ from api_pulls import *
 
 #FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS
 
-def total_ret(x):
-    # produces total price return
-    # mostly used for alpha and information ratio
-    # compounds daily returns to get cumulative return
-    one_plus_ret= []
-    for i in range(len(x)):
-        one_plus_ret+= [1+x[i]]
+# NOTE: this is for gen_attri.py
+# 1. pull data
+# 2. get date range
+# 3, get SPY data
+# 4. make sure all lists are same dimension etc
+# 5. create funtions that produce analysis on data
 
-    tot_ret= np.prod(one_plus_ret)-1
-    return tot_ret
+def BigDict_Tiingo(stockList, sDate, eDate):
+
+    # init the configurations
+    config = {}
+
+    # To reuse the same HTTP Session across API calls (and have better performance), include a session key.
+    config['session'] = True
+
+    # If you don't have your API key as an environment variable,
+    # pass it in via a configuration dictionary.
+    config['api_key'] = "a6051dc9e9d1140d8322de2b99755165d84f9671"
+
+    # Initialize
+    client = TiingoClient(config)
+
+    #NOTE: 
+    # Dictionary (all stocks) of lists (all days per stock) of dictionaries (data per day)
+    bigDict= {}
+
+    for stock in stockList:
+
+        # pulling data
+        # NOTE: structure:
+        # get a list of dictionaries per day with info incl adjClose, volume, etc
+        historical_data = client.get_ticker_price(stock,
+                                                fmt='json',
+                                                startDate=sDate,
+                                                endDate=eDate,
+                                                frequency='daily')
+
+        # Assigning a stock pull to the big dictionary 
+        bigDict[stock]= historical_data
+
+    return bigDict
+
+
+# turn big dict into dictionaries of data-level lists (e.g. adjusted close, divs)
+def extractBigDict(bigDict, item):
+    
+    # empty dictionary
+    selection= {}
+
+    for stock in bigDict:
+
+        # stock in bigDict -> dictionary keys (=stock strings)
+        # bigDict[stock] -> list of daily dictionarys (=daily stock stats) for given stock
+        # formulas pull chosen statistic (e.g. adjClose), and create a list of chosen stat
+        # places list of chosen stat in dictionary of chosen stats attached to stock 
+
+        selection[stock]=  np.array([sub[item] for sub in bigDict[stock]])
+        
+    return selection
+
+
+# compounds an array of returns 
+def compoundRets(rets):
+    ret= np.prod(np.array(rets)+1)-1
+    return ret
+
+
+# calculate an array of returns
+def dailyRets(vals):
+    rets= vals[1:]/vals[:-1]-1
+    return rets
 
 
 def beta(x, indx):
@@ -59,111 +127,47 @@ def information_ratio(TRx, TRindx, x, indx):
     return info_ratio
 
 
+# main function for generating attribution data
+# going to use fucntions defined above to get needed output
+def genAttri(stockList, sDate, eDate):
+
+    # calling the function, detting dict of lists of dicts
+    bigDict= BigDict_Tiingo(stockList, sDate, eDate)
+
+    # extracing lists data
+    adjClose= extractBigDict(bigDict, 'adjClose')
+    dates= extractBigDict(bigDict, 'date')
 
 
-def gen_shares_df(portfolio_list):
-    # this function takes the portfolio list and generates a dataframe of dates
-    # with sharecounts for different holdings + cash value
-    # NOTE: both NaN and 0 both imply 0 shares
-
-    counter= 0
-    breaker= 1000
-
-    # this iterates through the portfolio list
-    for i in portfolio_list:
-        #print(i)
-        #print(i.date)
-        #print(i.cash_holdings)
-
-        if counter== 0:
-            # this initiates a dataframe for share counts
-            shares_df= pandas.DataFrame(columns= ['cash'], index= [i.date])
-
-        else:
-            # following initiation, we append new portfolios
-            # the new row has same columns, NEW date, and values initiate at NaN
-            # in next loop, NaN is replaced w/ shares unless stock no longer exists, and stays NaN
-            new_row= pandas.DataFrame(columns=shares_df.columns, index= [i.date])
-            shares_df.append(new_row)
-
-        # adding cash position: this comes from inital object, now the share attributes
-        shares_df.at[i.date, 'cash']= i.cash_holdings
-
-        # this iterates through the stock dictionary / attributes
-        for key, value in i.stock_dict.items():
-            # these are all of the stock item attirbutes
-            #print(key, value.ticker, value.num_shares, value.close_price, value.first_purchase_date)
-
-            #if the stock already exists in history, update or maintain the number of shares for date
-            if key in shares_df.columns:
-                shares_df.at[i.date,key]= value.num_shares
-            #if the stock does has no history, add to the dataframe, then add shares for said daite
-            else:
-                shares_df[key]= 0
-                shares_df.at[i.date,key]= value.num_shares
+    spyNav= adjClose['SPY']
+    spyRet= dailyRets(spyNav) # remember, this will get rid of x[0]
+    print(spyRet)
 
 
-        counter+=1
 
-        if counter==breaker:
-            break
-        else:
-            pass
+    #print(dates['SPY'])
 
-    return shares_df
+
+    #porRet= np.array([0.015,0.022,0.005,-0.02])
+
+
+    return 1
+
+
 
 
 # MAIN:
-
 if __name__ == "__main__":
 
-    # pulling in TD list data
-    transaction_data = parseTDtransactions()
+    # NOTE: i commented out MAIN in ParseCSV 
 
-    # generate a list of portfolio holdings for each day from inception to present
-    portfolio_list = gen_daily_holdings(transaction_data)
-    full_list= get_all_positions(portfolio_list)
+    # setting function parameters
+    stockList= ['AAPL', 'SPY', 'NVDA', 'TSLA', 'GS']
+    sDate = "2019-12-31"
+    eDate = "2020-01-05"
 
-    # dataframe of cash/share positions
-    shares_df= gen_shares_df(portfolio_list)
-
-    # date range for the portfolio -> used for API pull
-    stock_list= shares_df.columns[1:] #cash position is not a stock (and is first column)
-    stock_list_w_index= ['SPY'] + stock_list #also want to pull SPY for alplha/beta calc etc
-    end= date.today()
-    start= shares_df.index[0] #oldest date pulled from shares_df
-
-    # pulls stock close data (raw, not adjusted)
-    # stock_close_df= get_close_yahoo(stock_list, start, end)
-
-    print()
-    print()
-
-    # the following is a test for portfolio statistics defined above
-    # they work but have not double checked whether output is actually correct
-
-    port= [0.02,0.01,0.015,-0.03,0.02,0.05,0.01,-0.01,0.015,0.01]
-    indx= [0.01,0.01,0.02,-0.04,0.015,0.015,0.0,-0.03,0.01,0.015]
-
-    rf= 0.02
-    port_ret= total_ret(port)
-    indx_ret= total_ret(indx)
-    erp= indx_ret-rf
-
-    beta= beta(x= port, indx=indx)
-    alpha= alpha(ret=port_ret, rf=rf, beta=beta, erp=erp)
-    info_ratio= information_ratio(TRx= port_ret, TRindx= indx_ret, x=port, indx=indx)
-
-
-    # printing output of results
-    print('Port ret: ', port_ret)
-    print('Indx ret: ', indx_ret)
-
-    print()
-
-    print('Beta: ', beta)
-    print('Alpha: ', alpha)
-    print('Info: ', info_ratio)
+    x= genAttri(stockList, sDate, eDate)
+    
 
 
 else:
@@ -177,85 +181,3 @@ else:
 
 
 
-
-
-
-
-
-
-
-"""
-
-if __name__ == "__main__":
-
-
-    #this will be GUI or selected by user in terminal
-    time_horizon= input('Horizaon (YTD, MTD, 1YR, 2YR, 3YR): ')
-
-    #stock list will eventually be taken from portfolio stats
-    #stock_list= ['SPY'] + input('Stocks (AAPL, MSFT, ...): ').split(', ') #ask user for stocks
-    stock_list= ['SPY', 'AAPL', 'MSFT', 'WM'] # will use this list for now ...
-    risk_free= 0.02 # arbitrary risk free rate of return
-
-    # Get the appropriate date range from user
-    end= date.today()
-    start= start_date(time_horizon) #function imported from another file
-    close= get_close_yahoo(stock_list, start, end) # pulls dataframe of selected stocks
-
-    # turning close data into index starting from 0
-    index=  close / close.head(1).to_numpy() - 1
-    rets= close.pct_change().dropna()
-    list_len_init= len(rets.columns)
-    equal_weights= np.ones(list_len_init-1)/(list_len_init-1)
-
-    # will have equal weighting from incenption, will add feature to rebalance
-    rets['Equal Weight']= (rets[stock_list[1:]]*equal_weights).sum(axis=1) #daily rebalancing
-
-    returns= index.tail(1)
-    returns['Equal Weight']= (rets['Equal Weight']+1).product()-1 #need to add equal weight return
-
-    shares_dataframe= pandas.DataFrame(columns=close.columns, index=close.index)
-    shares_dataframe.at['date':'date', 'ticker':'ticker']= 10
-
-
-
-    # CHECKS CHECKS CHECKS CHECKS CHECKS CHECKS CHECKS
-    # print(np.cov(rets['SPY'], rets['AAPL'])[0,1])
-    # print(np.cov(rets['SPY'], rets['SPY'], ddof=1))
-    # print(np.var(rets['SPY'], ddof=1))
-
-    # formulate betas for stock list
-    cols_names= rets.columns
-    list_len= len(cols_names)
-
-    betas= np.zeros(list_len)
-    counter= 0
-    for i in cols_names:
-        spyvar= np.var(rets['SPY'], ddof=1)
-        betas[counter]= np.cov(rets['SPY'], rets[i], ddof=1)[0,1] / spyvar
-        counter+=1
-
-    # formulate alphas for a stock list
-    alphas= np.zeros(list_len)
-    counter= 0
-    for i in cols_names:
-        alphas[counter]= returns[i]-risk_free-betas[counter]*(returns['SPY']-risk_free)
-        counter+=1
-
-    # excess_returns= returns-returns['SPY'] doesn't work
-
-    output_data= pandas.DataFrame(columns= ['Returns', 'Betas', 'Alphas'], index= cols_names)
-    output_data['Returns']= (100*returns.to_numpy()[0]).round(2)
-    output_data['Betas']= betas.round(2)
-    output_data['Alphas']= (100*alphas).round(2)
-
-    print()
-    print()
-    print('YTD Statistics: ')
-    print('Note: Equal weighted portfolio assumes daily rebalancing')
-    print(output_data)
-
-else:
-    print('Imported Functions: gen_return_attri.py')
-
-"""
