@@ -10,6 +10,7 @@ import cProfile
 import re
 from tiingo import TiingoClient
 
+
 # IMPORT FILES
 from parseCSV import *
 from gen_date_range import *
@@ -46,7 +47,7 @@ def BigDict_Tiingo(stockList, sDate, eDate):
     # Initialize
     client = TiingoClient(config)
 
-    #NOTE: 
+    # NOTE: 
     # Dictionary (all stocks) of lists (all days per stock) of dictionaries (data per day)
     bigDict= {}
 
@@ -91,7 +92,6 @@ def compoundRets(rets):
     return ret
 
 
-
 def dailyRets(vals):
     # calculate an array of returns (assumes given frequency e.g. daily, monthly, etc.)
     rets= vals[1:]/vals[:-1]-1
@@ -107,54 +107,91 @@ def beta(x, indx):
     return beta
 
 
-def alpha(ret, rf, beta, erp):
+def alpha(ret, riskFree, beta, equityRP):
     # E(r) = alpha + risk free + beta * (equity risk premium)
-    alpha= ret - rf - (beta*erp)
+    alpha= ret - riskFree - (beta*equityRP)
 
     return alpha
 
+def sortino():
+    return 'NA'
 
-def information_ratio(TRx, TRindx, x, indx):
+def treynor():
+    return 'NA'
+
+
+def information_ratio(portExcessReturn, x, indx):
     # takes in two return lists and calculates information ratio
-    diffRet= []
-    for i in range(len(x)): # can't add subtract lists
-        diffRet+= [x[i]-indx[i]]
-
-    excessRet= TRx - TRindx
+    diffRet= x-indx
     trackingError= np.std(diffRet)
-    infoRatio= excessRet/trackingError
+    infoRatio= portExcessReturn/trackingError
 
     return infoRatio
 
 
+def retTrunctate(portRet, dates, sDate, eDate):
+    # takes portfolio return, and turns it into the right size
 
-def portStats(portRet, benchRet, eDate):
+    return 'NA'
+
+
+def portStats(portRet, benchRet, riskFree, equityRP):
+
+    # ####
+    # NOTE: THIS IS ESSENTIALLY A FUNCTION OF FUNCTIONS (will make it easier to loop later)
+    # ####
+
     # takes in return streams and generates all data
     # assumes return streams are okay for particular date range
     # consolidates all the different statistics into one call / return
 
+    stats= {}
+
+    # THESE FIRST ITEMS ARE REQUIRED VARIABLES FOR OTHER FUNCTIONS SO DEFINING THEM OUTSIDE DICT
+    portTReturn= compoundRets(portRet)
+    stats['portTReturn']= portTReturn
+
+    benchTReturn= compoundRets(benchRet) # should probably use [-1]/[0]-1 # would be more accurate
+    stats['benchTReturn']= benchTReturn
     
-    # items that need to be integrated into main function
-    totalReturn= 1
-    excessReturn= 1
-    alpha= 1
-    infoRatio= 1
-    capture= 1
+    portBeta= beta(portRet, benchRet)
+    stats['portBeta']= portBeta
 
+    portEexcessReturn= (portTReturn - benchTReturn)
+    stats['portEexcessReturn']= portEexcessReturn
 
+    # ITEMS THAT ARE NOT INPUTS TO OTHER STATISTICS
+    stats['portAlpha']= alpha(portTReturn, riskFree, portBeta, equityRP)
+    stats['infoRatio']= information_ratio(portEexcessReturn, portRet, benchRet)
+    
+    # HAVE NOT YET CREATED FORMULAS FOR THESE
+    stats['capture']= "NA"
+    stats['sortino']= "NA"
+    stats['treynor']= "NA"
 
-    return 1
+    return stats
 
 
 def genAttri():
     # this function does everything from start to finish
-    #   1. pulls parseCSV
+    #   1. pulls parseCSV (temporarily just uses API data sets)
     #   2. ...
-    #   3. outputs for multiple periods
-
+    #   3. for multiple periods -> portStats
 
     # takes in return streams and generates all data
     # assumes return streams are okay for particular date range
+
+    # NOTE: assume YTD, MTD, QTD, 1YR, 2YR, 3YR, 5YR, 10YR, Inception, + custom date range
+    # Is this too many? GUI would probably show first 4, then drop down arrow for additional? 
+    # Going to assume the AAPL is our portfolio and benchmark is SPY
+
+
+    ######################################################################
+    ### TEMPORARY CODE
+    ######################################################################
+    stockList= ['AAPL', 'SPY']
+    sDate = "2019-12-31"
+    eDate = "2020-12-31"
 
     # calling the function, detting dict of lists of dicts
     bigDict= BigDict_Tiingo(stockList, sDate, eDate)
@@ -163,17 +200,29 @@ def genAttri():
     adjClose= extractBigDict(bigDict, 'adjClose')
     dates= extractBigDict(bigDict, 'date')
 
+    benchNav= adjClose['SPY']
+    portNav= adjClose['AAPL']
 
-    spyNav= adjClose['SPY']
-    spyRet= dailyRets(spyNav) # remember, this will get rid of x[0]
-    print(spyRet)
-
-
-
-    #print(dates['SPY'])
+    ##################################################################
+    ### TEMPORARY CODE ENDS
+    ##################################################################
 
 
-    #porRet= np.array([0.015,0.022,0.005,-0.02])
+    benchRet= dailyRets(benchNav) # remember, this will get rid of x[0]
+    portRet= dailyRets(portNav)
+
+    # NOTE: NEED TO BE ABLE TO MODIFY ^^^ BASED ON DATES
+
+    riskFree= 0.01 # this needs to change
+    equityRP= 0.045 # this needs to change
+
+    stats= portStats(portRet, benchRet, riskFree, equityRP)
+
+    for sub in stats:
+        print(sub, stats[sub])
+
+
+    return stats
 
 
 
@@ -181,7 +230,6 @@ def genAttri():
 
 
 
-    return 1
 
 
 
@@ -190,16 +238,10 @@ def genAttri():
 # MAIN:
 if __name__ == "__main__":
 
-    # NOTE: i commented out MAIN in ParseCSV 
-
-    # setting function parameters
-    stockList= ['AAPL', 'SPY', 'NVDA', 'TSLA', 'GS']
-    sDate = "2019-12-31"
-    eDate = "2020-01-05"
-
-    x= genAttri(stockList, sDate, eDate)
+   
+    # running the function
+    stats= genAttri()
     
-
 
 else:
     print('Import: {}'.format(__file__))
