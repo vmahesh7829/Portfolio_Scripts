@@ -1,38 +1,37 @@
 
 __author__= 'gianluca'
 
-# imports
+# IMPORT MODULES
 import numpy as np
 import requests
 import datetime
 from datetime import date
-
-
 import cProfile
 import re
 from tiingo import TiingoClient
 
-
-# importing functions from other files
+# IMPORT FILES
 from parseCSV import *
 from gen_date_range import *
 from api_pulls import *
 
+# NOTE: 
+# SOME STEPS TO FOLLOW / REFER TO
+#   1. pull data
+#   2. get date range
+#   3, get SPY data
+#   4. make sure all lists are same dimension etc
+#   5. create funtions that produce analysis on data
 
-# columns to add to output
-# contribution to return: weight * return
-# excess return
+# STILL REQUIRED:
+#   1. function that truncates return list from parseCSV to match diff date ranges
 
-#FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS
-
-# NOTE: this is for gen_attri.py
-# 1. pull data
-# 2. get date range
-# 3, get SPY data
-# 4. make sure all lists are same dimension etc
-# 5. create funtions that produce analysis on data
+###############################################################################################
+## FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS ##
+###############################################################################################
 
 def BigDict_Tiingo(stockList, sDate, eDate):
+    # pulls list (per stock) of daily dictionaries (includes open/close/etc.)
 
     # init the configurations
     config = {}
@@ -68,8 +67,8 @@ def BigDict_Tiingo(stockList, sDate, eDate):
     return bigDict
 
 
-# turn big dict into dictionaries of data-level lists (e.g. adjusted close, divs)
 def extractBigDict(bigDict, item):
+    # turn big dict into dictionaries of data-level lists (e.g. adjusted close, divs)
     
     # empty dictionary
     selection= {}
@@ -86,14 +85,15 @@ def extractBigDict(bigDict, item):
     return selection
 
 
-# compounds an array of returns 
 def compoundRets(rets):
+    # compounds an array of returns to get return over period
     ret= np.prod(np.array(rets)+1)-1
     return ret
 
 
-# calculate an array of returns
+
 def dailyRets(vals):
+    # calculate an array of returns (assumes given frequency e.g. daily, monthly, etc.)
     rets= vals[1:]/vals[:-1]-1
     return rets
 
@@ -116,20 +116,45 @@ def alpha(ret, rf, beta, erp):
 
 def information_ratio(TRx, TRindx, x, indx):
     # takes in two return lists and calculates information ratio
-    diff_ret= []
+    diffRet= []
     for i in range(len(x)): # can't add subtract lists
-        diff_ret+= [x[i]-indx[i]]
+        diffRet+= [x[i]-indx[i]]
 
-    excess_ret= TRx - TRindx
-    tracking_error= np.std(diff_ret)
-    info_ratio= excess_ret/tracking_error
+    excessRet= TRx - TRindx
+    trackingError= np.std(diffRet)
+    infoRatio= excessRet/trackingError
 
-    return info_ratio
+    return infoRatio
 
 
-# main function for generating attribution data
-# going to use fucntions defined above to get needed output
-def genAttri(stockList, sDate, eDate):
+
+def portStats(portRet, benchRet, eDate):
+    # takes in return streams and generates all data
+    # assumes return streams are okay for particular date range
+    # consolidates all the different statistics into one call / return
+
+    
+    # items that need to be integrated into main function
+    totalReturn= 1
+    excessReturn= 1
+    alpha= 1
+    infoRatio= 1
+    capture= 1
+
+
+
+    return 1
+
+
+def genAttri():
+    # this function does everything from start to finish
+    #   1. pulls parseCSV
+    #   2. ...
+    #   3. outputs for multiple periods
+
+
+    # takes in return streams and generates all data
+    # assumes return streams are okay for particular date range
 
     # calling the function, detting dict of lists of dicts
     bigDict= BigDict_Tiingo(stockList, sDate, eDate)
@@ -151,7 +176,13 @@ def genAttri(stockList, sDate, eDate):
     #porRet= np.array([0.015,0.022,0.005,-0.02])
 
 
+
+
+
+
+
     return 1
+
 
 
 
