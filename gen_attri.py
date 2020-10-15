@@ -5,10 +5,11 @@ __author__= 'gianluca'
 import numpy as np
 import requests
 import datetime
-from datetime import date
+from datetime import date, timedelta
 import cProfile
 import re
 from tiingo import TiingoClient
+import bisect
 
 
 # IMPORT FILES
@@ -89,7 +90,7 @@ def extractBigDict(bigDict, item):
 def compoundRets(rets):
     # compounds an array of returns to get return over period
     ret= np.prod(np.array(rets)+1)-1
-    return ret
+    return round(ret,3)
 
 
 def dailyRets(vals):
@@ -104,19 +105,32 @@ def beta(x, indx):
     indx_variance= np.var(indx)
     beta= covariance/indx_variance
 
-    return beta
+    return round(beta, 3)
 
 
 def alpha(ret, riskFree, beta, equityRP):
     # E(r) = alpha + risk free + beta * (equity risk premium)
     alpha= ret - riskFree - (beta*equityRP)
 
-    return alpha
+    return round(alpha,3)
+
 
 def sortino():
     return 'NA'
 
-def treynor():
+
+def sharpe(portRet, riskFree):
+    # excess return / standard deviation
+    sr= (compoundRets(portRet)-riskFree) / np.std(portRet) # CHECK NP.STD DOF
+    return round(sr,3)
+
+
+def treynor(portRet, beta, riskFree):
+    # sharpe ratio but with beta in denominator
+    tr= (compoundRets(portRet)-riskFree) / beta # CHECK NP.STD DOF
+    return round(tr,3)
+
+def capture():
     return 'NA'
 
 
@@ -126,13 +140,135 @@ def information_ratio(portExcessReturn, x, indx):
     trackingError= np.std(diffRet)
     infoRatio= portExcessReturn/trackingError
 
-    return infoRatio
+    return round(infoRatio,3)
 
 
-def retTrunctate(portRet, dates, sDate, eDate):
+def retTruncate(rets, dtPortDates, sDate, eDate):
     # takes portfolio return, and turns it into the right size
+    # Use the method that Vishy recommended / emailed you about
+    # requires ISO date format
 
-    return 'NA'
+    # NEED ISO FORMAT FOR THIS FUNCTION TO WORK
+    #isoPortDates= dtToISO(dtPortDates)
+    #sDate= dtToISO([sDate])[0] #function returns a list, and is this case just one item
+    #sDate= dtToISO([eDate])[0] #function returns a list, and is this case just one item
+
+    #print(sDate)
+    #print(eDate)
+    #print()
+    #print(isoPortDates)
+
+    #solution b/c bisect does not work with DT or ISO string
+    i=0
+    for sub in dtPortDates:
+        if sub==sDate:
+            sIndex= i
+        
+        if sub==eDate:
+            eIndex= i+1
+        
+        i=i+1
+
+    #sIndex= bisect.bisect(sDate, isoPortDates)
+    #eIndex= bisect.bisect(eDate, isoPortDates)+1 # adding 1 so that it is inclusive
+
+    # creating a smaller list of returns
+    truncRets = rets[sIndex:eIndex]
+
+    return truncRets
+
+
+def horizonDates(portDates):
+    # generate dates that corespond w/ YTD, MTD, 1YR, etc
+    dates= {}
+
+    # today's features
+    today= date.today()
+    year= today.year
+    month= today.month
+    day= today.day
+
+    # CURRENT METHOD OF MAKING DATES WORK SEEMS VERY RISKAYY ... IDK
+    # NOTE: needs a beak - in some cases the horizon is out of the range ...
+    # NOTE: these dates truncate lists of return data which means we don't need (-1) date b/c we're not calculating !!!
+
+    ytd= date(year-1, 12, 31)
+    while ytd not in portDates:
+        ytd= ytd-timedelta(1)
+    dates['ytd']= ytd
+
+    yr1= date(year-1, month, day-1)
+    while yr1 not in portDates:
+        yr1= yr1-timedelta(1)
+    dates['yr1']= yr1
+
+    yr2= date(year-2, month, day-1)
+    while yr2 not in portDates:
+        yr2= yr2-timedelta(1)
+    dates['yr2']= yr2
+
+    yr3= date(year-3, month, day-1)
+    while yr3 not in portDates:
+        yr3= yr3-timedelta(1)
+    dates['yr3']= yr3
+
+    # Currently unsupported date ranges (sDates)
+    mtd= 'NA'
+    qtd= 'NA'
+    yr5= 'NA'
+    yr10= 'NA'
+    inception= 'NA'
+    custom= 'NA'
+
+    # Additional options that should ultimately be included
+    fy2020= 'NA'
+    fy2019= 'NA'
+    fy2018= 'NA'
+
+    return dates    
+
+def isoToDatetime(isoDates):
+    # turning a list of iso dates into a list of datetime dates
+    dtDates=  [ date(  int(sub[:4]), int(sub[5:7]), int(sub[8:10])  ) for sub in isoDates ]
+
+    # warning in event that something goes wrong
+    if len(isoDates) != len(dtDates):
+        print("WARNING: isoToDatetime FUNCTION OUTPUT LEN DOES NOT MATCH")
+
+    return dtDates
+
+
+def dtToISO(dtDates):
+    # turning a list of datetime dates to iso dates
+    isoDates=[]
+    for sub in dtDates:
+        #getting string equivalents
+        year= str(sub.year)
+        month= str(sub.month)
+        day= str(sub.day)
+
+        #issue is that for January, datetime returns "1", not "01"
+        # if everything is 2, keep as is
+        if len(month)==2 and len(day)==2:
+            isoDates += ["{}-{}-{}".format(year,month,day)]       
+
+        # if month is 1 and day is 2, add 0 before month
+        if len(month)==1 and len(day)==2:
+            isoDates += ["{}-{}-{}".format(year,'0'+month,day)]       
+        
+        # if month is 2 and day is 1, add 0 before day
+        if len(month)==2 and len(day)==1:
+            isoDates += ["{}-{}-{}".format(year,month,'0'+day)]       
+        
+        # if month is 1 and day is 1, add 0 before both
+        if len(month)==1 and len(day)==1:
+            isoDates += ["{}-{}-{}".format(year,'0'+month,'0'+day)]       
+
+    # warning in event that something goes wrong
+    if len(isoDates) != len(dtDates):
+        print("WARNING: dtToISO FUNCTION OUTPUT LEN DOES NOT MATCH")
+
+    return isoDates
 
 
 def portStats(portRet, benchRet, riskFree, equityRP):
@@ -158,16 +294,19 @@ def portStats(portRet, benchRet, riskFree, equityRP):
     stats['portBeta']= portBeta
 
     portEexcessReturn= (portTReturn - benchTReturn)
-    stats['portEexcessReturn']= portEexcessReturn
+    stats['portEexcessReturn']= round(portEexcessReturn,3)
 
     # ITEMS THAT ARE NOT INPUTS TO OTHER STATISTICS
     stats['portAlpha']= alpha(portTReturn, riskFree, portBeta, equityRP)
-    stats['infoRatio']= information_ratio(portEexcessReturn, portRet, benchRet)
-    
+    stats['portInfoRatio']= information_ratio(portEexcessReturn, portRet, benchRet)
+    stats['portSharpe']= sharpe(portRet, riskFree)
+    stats['portTreynor']= treynor(portRet, portBeta, riskFree)
+
+
     # HAVE NOT YET CREATED FORMULAS FOR THESE
-    stats['capture']= "NA"
-    stats['sortino']= "NA"
-    stats['treynor']= "NA"
+    stats['capture']= capture()
+    stats['sortino']= sortino()
+    
 
     return stats
 
@@ -185,49 +324,73 @@ def genAttri():
     # Is this too many? GUI would probably show first 4, then drop down arrow for additional? 
     # Going to assume the AAPL is our portfolio and benchmark is SPY
 
-
     ######################################################################
     ### TEMPORARY CODE
     ######################################################################
+    
+    # ASSUMING AAPL TO BE OUR PORTFOLIO
+    # ALL OF THE DATA IN THIS SECTION WILL ULTIMATELY BE PROVIDED BY PARSE CSV
+    
     stockList= ['AAPL', 'SPY']
-    sDate = "2019-12-31"
-    eDate = "2020-12-31"
+    #sDate = "2015-12-31"
+    #eDate = "2020-12-31"
+
+    sDate = date(2015,12,31)
+    eDate = date.today()-timedelta(1)
 
     # calling the function, detting dict of lists of dicts
     bigDict= BigDict_Tiingo(stockList, sDate, eDate)
 
     # extracing lists data
     adjClose= extractBigDict(bigDict, 'adjClose')
-    dates= extractBigDict(bigDict, 'date')
+    apiDates= extractBigDict(bigDict, 'date')
 
     benchNav= adjClose['SPY']
     portNav= adjClose['AAPL']
+    
+    TiingoPortDates= (apiDates['AAPL'])[1:] # first date goes away b/c it is % change
+    dtPortDates=  isoToDatetime(TiingoPortDates)
+
+    #print(portDates)
+    print()
+    print((date.today()-timedelta(1)) in dtPortDates)
+
 
     ##################################################################
     ### TEMPORARY CODE ENDS
     ##################################################################
 
+    #NOTE: DEBUGGING
 
+    # going to create a dictionary of dictionaries
+    # headline dictionary is orginzed by horizon 
+    # selected horizon has a dicitonary of various statistics
+    mhStats= {} # multi-horizon stat
+
+    # these items will come from parseCSV
     benchRet= dailyRets(benchNav) # remember, this will get rid of x[0]
     portRet= dailyRets(portNav)
 
-    # NOTE: NEED TO BE ABLE TO MODIFY ^^^ BASED ON DATES
+    # this generates sDates for various horizons
+    # REQUIRES DATETIME FORMAT
+    horDates= horizonDates(dtPortDates)
 
-    riskFree= 0.01 # this needs to change
-    equityRP= 0.045 # this needs to change
+    # need to truncate based on various sDates from dates
+    for sub in horDates:
+        # retTruncate rquires ISO
+        truncPortRet= retTruncate(portRet, dtPortDates, horDates[sub], eDate)    # NOTE: DOES NOT WORK YET !!!!!!!
+        truncBenchRet= retTruncate(benchRet, dtPortDates, horDates[sub], eDate)  # NOTE: DOES NOT WORK YET !!!!!!!
 
-    stats= portStats(portRet, benchRet, riskFree, equityRP)
+        # Other rando assumptions needed
+        riskFree= 0.010 # this needs to be calculated somehow
+        equityRP= 0.045 # this needs to be calculated somehow
 
-    for sub in stats:
-        print(sub, stats[sub])
-
-
-    return stats
-
+        # saves this horizon of statistics (it's a dictionary) within the stats dictionary
+        mhStats[sub]= portStats(truncPortRet, truncBenchRet, riskFree, equityRP)
 
 
-
-
+#    mhStats='NA'
+    return mhStats
 
 
 
@@ -238,10 +401,20 @@ def genAttri():
 # MAIN:
 if __name__ == "__main__":
 
-   
+
     # running the function
-    stats= genAttri()
-    
+    mhStats= genAttri()
+
+    for sub in mhStats:
+        print(sub, ':')
+        print(mhStats[sub])
+        print()
+        print()
+
+
+
+
+
 
 else:
     print('Import: {}'.format(__file__))
