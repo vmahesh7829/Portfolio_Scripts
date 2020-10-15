@@ -11,14 +11,13 @@ import re
 from tiingo import TiingoClient
 import bisect
 
-
 # IMPORT FILES
 from parseCSV import *
 from gen_date_range import *
 from api_pulls import *
 
 # NOTE: 
-# SOME STEPS TO FOLLOW / REFER TO
+# SOME STEPS TO FOLLOW / REFER TO:
 #   1. pull data
 #   2. get date range
 #   3, get SPY data
@@ -144,33 +143,10 @@ def information_ratio(portExcessReturn, x, indx):
 
 
 def retTruncate(rets, dtPortDates, sDate, eDate):
-    # takes portfolio return, and turns it into the right size
-    # Use the method that Vishy recommended / emailed you about
-    # requires ISO date format
 
-    # NEED ISO FORMAT FOR THIS FUNCTION TO WORK
-    #isoPortDates= dtToISO(dtPortDates)
-    #sDate= dtToISO([sDate])[0] #function returns a list, and is this case just one item
-    #sDate= dtToISO([eDate])[0] #function returns a list, and is this case just one item
-
-    #print(sDate)
-    #print(eDate)
-    #print()
-    #print(isoPortDates)
-
-    #solution b/c bisect does not work with DT or ISO string
-    i=0
-    for sub in dtPortDates:
-        if sub==sDate:
-            sIndex= i
-        
-        if sub==eDate:
-            eIndex= i+1
-        
-        i=i+1
-
-    #sIndex= bisect.bisect(sDate, isoPortDates)
-    #eIndex= bisect.bisect(eDate, isoPortDates)+1 # adding 1 so that it is inclusive
+    #shortening a long list of returns    
+    sIndex= bisect.bisect(dtPortDates, sDate)
+    eIndex= bisect.bisect(dtPortDates, eDate)+1 # adding 1 so that it is inclusive
 
     # creating a smaller list of returns
     truncRets = rets[sIndex:eIndex]
@@ -191,26 +167,27 @@ def horizonDates(portDates):
     # CURRENT METHOD OF MAKING DATES WORK SEEMS VERY RISKAYY ... IDK
     # NOTE: needs a beak - in some cases the horizon is out of the range ...
     # NOTE: these dates truncate lists of return data which means we don't need (-1) date b/c we're not calculating !!!
+    # NOTE: QUESTION: SHOULD IT BE: (DAY or DAY+1) ????????? 
 
-    ytd= date(year-1, 12, 31)
+    ytd= date(year-1, 1, 1)
     while ytd not in portDates:
-        ytd= ytd-timedelta(1)
+        ytd= ytd+timedelta(1)
     dates['ytd']= ytd
 
-    yr1= date(year-1, month, day-1)
+    yr1= date(year-1, month, day)
     while yr1 not in portDates:
-        yr1= yr1-timedelta(1)
-    dates['yr1']= yr1
+        yr1= yr1+timedelta(1)
+    dates['1yr']= yr1
 
-    yr2= date(year-2, month, day-1)
+    yr2= date(year-2, month, day)
     while yr2 not in portDates:
-        yr2= yr2-timedelta(1)
-    dates['yr2']= yr2
+        yr2= yr2+timedelta(1)
+    dates['2yr']= yr2
 
-    yr3= date(year-3, month, day-1)
+    yr3= date(year-3, month, day)
     while yr3 not in portDates:
-        yr3= yr3-timedelta(1)
-    dates['yr3']= yr3
+        yr3= yr3+timedelta(1)
+    dates['3yr']= yr3
 
     # Currently unsupported date ranges (sDates)
     mtd= 'NA'
@@ -240,6 +217,7 @@ def isoToDatetime(isoDates):
 
 def dtToISO(dtDates):
     # turning a list of datetime dates to iso dates
+    # unclear whether this function will be needed (likely for storing into cloud)
     isoDates=[]
     for sub in dtDates:
         #getting string equivalents
@@ -331,11 +309,9 @@ def genAttri():
     # ASSUMING AAPL TO BE OUR PORTFOLIO
     # ALL OF THE DATA IN THIS SECTION WILL ULTIMATELY BE PROVIDED BY PARSE CSV
     
-    stockList= ['AAPL', 'SPY']
-    #sDate = "2015-12-31"
-    #eDate = "2020-12-31"
+    stockList= ['BRK-A', 'SPY']
 
-    sDate = date(2015,12,31)
+    sDate = date(2015,12,31) # in reality, sDate will be oldest date in date list provided by parseCSV
     eDate = date.today()-timedelta(1)
 
     # calling the function, detting dict of lists of dicts
@@ -345,22 +321,16 @@ def genAttri():
     adjClose= extractBigDict(bigDict, 'adjClose')
     apiDates= extractBigDict(bigDict, 'date')
 
+    # getting lists specific to a stock
     benchNav= adjClose['SPY']
-    portNav= adjClose['AAPL']
-    
-    TiingoPortDates= (apiDates['AAPL'])[1:] # first date goes away b/c it is % change
+    portNav= adjClose['BRK-A']
+
+    TiingoPortDates= (apiDates['BRK-A'])[1:] # first date goes away b/c it is % change
     dtPortDates=  isoToDatetime(TiingoPortDates)
-
-    #print(portDates)
-    print()
-    print((date.today()-timedelta(1)) in dtPortDates)
-
 
     ##################################################################
     ### TEMPORARY CODE ENDS
     ##################################################################
-
-    #NOTE: DEBUGGING
 
     # going to create a dictionary of dictionaries
     # headline dictionary is orginzed by horizon 
@@ -377,9 +347,9 @@ def genAttri():
 
     # need to truncate based on various sDates from dates
     for sub in horDates:
-        # retTruncate rquires ISO
-        truncPortRet= retTruncate(portRet, dtPortDates, horDates[sub], eDate)    # NOTE: DOES NOT WORK YET !!!!!!!
-        truncBenchRet= retTruncate(benchRet, dtPortDates, horDates[sub], eDate)  # NOTE: DOES NOT WORK YET !!!!!!!
+        # retTruncate works w/ dateTime date format
+        truncPortRet= retTruncate(portRet, dtPortDates, horDates[sub], eDate)    
+        truncBenchRet= retTruncate(benchRet, dtPortDates, horDates[sub], eDate) 
 
         # Other rando assumptions needed
         riskFree= 0.010 # this needs to be calculated somehow
@@ -388,31 +358,24 @@ def genAttri():
         # saves this horizon of statistics (it's a dictionary) within the stats dictionary
         mhStats[sub]= portStats(truncPortRet, truncBenchRet, riskFree, equityRP)
 
-
-#    mhStats='NA'
     return mhStats
-
-
-
-
 
 
 
 # MAIN:
 if __name__ == "__main__":
 
-
-    # running the function
+    # Running genAttri
+    # Should we pass on a benchmark? 
+    # Maybe we can determine appropriate benchmark based on asset exposure
     mhStats= genAttri()
 
     for sub in mhStats:
+        print()
         print(sub, ':')
         print(mhStats[sub])
         print()
         print()
-
-
-
 
 
 
