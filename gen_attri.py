@@ -335,7 +335,7 @@ def multiHorStats(dtPortDates, portRet, benchRet, eDate):
 
 
 
-def genAttri():
+def fullPortStats():
     # this function does everything from start to finish
     #   1. pulls parseCSV (temporarily just uses API data sets)
     #   2. ...
@@ -413,7 +413,6 @@ def genAttri():
     # Also: maybe asset level analysis is another button to initiate? (too fast to even notice?)
     
     
-    
     for sub in assets:
         # Portfolio/Asset data
         assetNav= adjClose[sub]
@@ -436,7 +435,17 @@ if __name__ == "__main__":
     # Running genAttri
     # Should we pass on a benchmark? 
     # Maybe we can determine appropriate benchmark based on asset exposure
-    portfolioStatistics= genAttri()
+
+    # Calling genAttri() should allow for non-default loadings 
+    # This would allow for same function to be used for cumulative statistics (for graphing)
+
+
+    # Pass: (and we can pass through lists too) 
+    #     1. statistic - assetStats()
+    #     2. horizons - multiHorStats() 
+    #     3. asset - genAttri()
+
+    portfolioStatistics= fullPortStats()
     
 
     print("Complete Portfolio Statistics: ")
