@@ -88,7 +88,7 @@ def extractBigDict(bigDict, item):
 
 def compoundRets(rets):
     # compounds an array of returns to get return over period
-    ret= np.prod(np.array(rets)+1)-1
+    ret= np.prod(rets+1)-1
     return round(ret,3)
 
 
@@ -102,25 +102,26 @@ def beta(x, indx):
     # this takes two lists and calculates beta
     covariance= np.cov(x, indx)[0,1] # this always returns a covariance matrix which is why [0,1]
     indx_variance= np.var(indx)
-    beta= covariance/indx_variance
-
-    return round(beta, 3)
+    betaC= covariance/indx_variance
+    return round(betaC, 3)
 
 
 def alpha(ret, riskFree, beta, equityRP):
     # E(r) = alpha + risk free + beta * (equity risk premium)
-    alpha= ret - riskFree - (beta*equityRP)
-
-    return round(alpha,3)
-
-
-def sortino():
-    return 'NA'
+    a= ret - riskFree - (beta*equityRP)
+    return round(a,3)
 
 
 def sharpe(portRet, riskFree):
     # excess return / standard deviation
     sr= (compoundRets(portRet)-riskFree) / np.std(portRet) # CHECK NP.STD DOF
+    return round(sr,3)
+
+
+def sortino(portRet, riskFree):
+    # sharpe but vol is measured for negative returns only
+    adjRet= [sub for sub in portRet if sub<0.0] # CHECK IF THIS EVEN WORKS
+    sr= (compoundRets(portRet)-riskFree) / np.std(adjRet) # CHECK NP.STD DOF
     return round(sr,3)
 
 
@@ -138,7 +139,6 @@ def information_ratio(portExcessReturn, x, indx):
     diffRet= x-indx
     trackingError= np.std(diffRet)
     infoRatio= portExcessReturn/trackingError
-
     return round(infoRatio,3)
 
 
@@ -156,6 +156,9 @@ def retTruncate(rets, dtPortDates, sDate, eDate):
 
 def horizonDates(portDates):
     # generate dates that corespond w/ YTD, MTD, 1YR, etc
+    # NOTE: should creat a way to see variance in estimate vs used
+    #       1. if a difference extends beyond (let's say 5 days) it raises a flag
+
     dates= {}
 
     # today's features
@@ -169,7 +172,7 @@ def horizonDates(portDates):
     # NOTE: these dates truncate lists of return data which means we don't need (-1) date b/c we're not calculating !!!
     # NOTE: QUESTION: SHOULD IT BE: (DAY or DAY+1) ????????? 
 
-    ytd= date(year-1, 1, 1)
+    ytd= date(year, 1, 1)
     while ytd not in portDates:
         ytd= ytd+timedelta(1)
     dates['ytd']= ytd
@@ -248,8 +251,12 @@ def dtToISO(dtDates):
 
     return isoDates
 
+def dateCheck(apiDates, x,y):
+    if (apiDates[x])[1:] != (apiDates[y])[1:]:
+        print('', 'DATES DO NOT MATCH UP !!!!')
 
-def portStats(portRet, benchRet, riskFree, equityRP):
+
+def assetStats(portRet, benchRet, riskFree, equityRP, sDate, eDate):
 
     # ####
     # NOTE: THIS IS ESSENTIALLY A FUNCTION OF FUNCTIONS (will make it easier to loop later)
@@ -279,67 +286,30 @@ def portStats(portRet, benchRet, riskFree, equityRP):
     stats['portInfoRatio']= information_ratio(portEexcessReturn, portRet, benchRet)
     stats['portSharpe']= sharpe(portRet, riskFree)
     stats['portTreynor']= treynor(portRet, portBeta, riskFree)
-
+    
+    # IFFY WAY OF CALCULATING VOL SUB 0 IN THIS RATIO - PLEASE CHECK
+    stats['sortino']= sortino(portRet, riskFree)
 
     # HAVE NOT YET CREATED FORMULAS FOR THESE
     stats['capture']= capture()
-    stats['sortino']= sortino()
+    
+    # keeping track of dates used for a horizon
+    stats['sDate']= sDate
+    stats['eDate']= eDate
     
 
     return stats
 
+def multiHorStats(dtPortDates, portRet, benchRet, eDate): 
 
-def genAttri():
-    # this function does everything from start to finish
-    #   1. pulls parseCSV (temporarily just uses API data sets)
-    #   2. ...
-    #   3. for multiple periods -> portStats
+    # genAttri will have portfolio + assets + dates to create mhStats
+    # whole process / loop required for mhStats will be done in here instead
 
-    # takes in return streams and generates all data
-    # assumes return streams are okay for particular date range
-
-    # NOTE: assume YTD, MTD, QTD, 1YR, 2YR, 3YR, 5YR, 10YR, Inception, + custom date range
-    # Is this too many? GUI would probably show first 4, then drop down arrow for additional? 
-    # Going to assume the AAPL is our portfolio and benchmark is SPY
-
-    ######################################################################
-    ### TEMPORARY CODE
-    ######################################################################
-    
-    # ASSUMING AAPL TO BE OUR PORTFOLIO
-    # ALL OF THE DATA IN THIS SECTION WILL ULTIMATELY BE PROVIDED BY PARSE CSV
-    
-    stockList= ['BRK-A', 'SPY']
-
-    sDate = date(2015,12,31) # in reality, sDate will be oldest date in date list provided by parseCSV
-    eDate = date.today()-timedelta(1)
-
-    # calling the function, detting dict of lists of dicts
-    bigDict= BigDict_Tiingo(stockList, sDate, eDate)
-
-    # extracing lists data
-    adjClose= extractBigDict(bigDict, 'adjClose')
-    apiDates= extractBigDict(bigDict, 'date')
-
-    # getting lists specific to a stock
-    benchNav= adjClose['SPY']
-    portNav= adjClose['BRK-A']
-
-    TiingoPortDates= (apiDates['BRK-A'])[1:] # first date goes away b/c it is % change
-    dtPortDates=  isoToDatetime(TiingoPortDates)
-
-    ##################################################################
-    ### TEMPORARY CODE ENDS
-    ##################################################################
-
-    # going to create a dictionary of dictionaries
+    # create a dictionary of dictionaries
     # headline dictionary is orginzed by horizon 
     # selected horizon has a dicitonary of various statistics
+    
     mhStats= {} # multi-horizon stat
-
-    # these items will come from parseCSV
-    benchRet= dailyRets(benchNav) # remember, this will get rid of x[0]
-    portRet= dailyRets(portNav)
 
     # this generates sDates for various horizons
     # REQUIRES DATETIME FORMAT
@@ -347,18 +317,116 @@ def genAttri():
 
     # need to truncate based on various sDates from dates
     for sub in horDates:
-        # retTruncate works w/ dateTime date format
-        truncPortRet= retTruncate(portRet, dtPortDates, horDates[sub], eDate)    
-        truncBenchRet= retTruncate(benchRet, dtPortDates, horDates[sub], eDate) 
+        # start date for horizon
+        adjSDate= horDates[sub]
+
+        # Shortening return streams to match horizon
+        truncPortRet=   retTruncate(portRet, dtPortDates, adjSDate, eDate)    
+        truncBenchRet= retTruncate(benchRet, dtPortDates, adjSDate, eDate) 
 
         # Other rando assumptions needed
         riskFree= 0.010 # this needs to be calculated somehow
         equityRP= 0.045 # this needs to be calculated somehow
 
-        # saves this horizon of statistics (it's a dictionary) within the stats dictionary
-        mhStats[sub]= portStats(truncPortRet, truncBenchRet, riskFree, equityRP)
+        # generates horizon of statistics (it's a dictionary) within the stats dictionary
+        mhStats[sub]= assetStats(truncPortRet, truncBenchRet, riskFree, equityRP, adjSDate ,eDate)
 
     return mhStats
+
+
+
+def genAttri():
+    # this function does everything from start to finish
+    #   1. pulls parseCSV (temporarily just uses API data sets)
+    #   2. ...
+    #   3. Stocks -> Horizon -> data (three dictionaries)
+
+    # THINGS TO CHECK/CONFIRM
+    print()
+    print("FOLLOWING ITEMS NEED TO BE CHECKED: ")
+    print()
+    print('Confirm downside VOL methodology in sortino() (single line if/for)')
+    print()
+    print('Get the date-check thing to work')
+    print()
+    print('HorizonDates() needs to be checked, or return an adjustment variance')
+
+    # Generates stats from return streams, not NAV
+    # NOTE: assume YTD, MTD, QTD, 1YR, 2YR, 3YR, 5YR, 10YR, Inception, + custom date range
+
+    ######################################################################
+    ### TEMPORARY CODE, WILL REPLACE A LOT WITH PARSECSV OUTPUT
+
+    # ASSUMING BRK-A TO BE OUR PORTFOLIO
+    # ALL OF THE DATA IN THIS SECTION WILL ULTIMATELY BE PROVIDED BY PARSE CSV
+
+    # this date range will be provided by parseCSV
+    sDate = date(2015,12,31) 
+    eDate = date.today()-timedelta(1)
+
+    # ticker inputs for API
+    portfolio= 'BRK-A'
+    benchmark= 'SPY'
+    assets= ['AAPL', 'SQ', 'AGM', 'BAC', 'V', 'MSFT', 'BAC', 'BA']
+    
+    # combining inputs into single list
+    tiingoPull=[benchmark]+[portfolio]+assets
+    
+    # Dict of lists of dicts (by stock)
+    bigDict= BigDict_Tiingo(tiingoPull, sDate, eDate)
+
+    # Showing that 95% run-time is API pull 
+    print()
+    print("API COMPLETE!!!!!!!!!!!!")
+
+
+    # Extracting item lists
+    adjClose= extractBigDict(bigDict, 'adjClose')
+    apiDates= extractBigDict(bigDict, 'date')
+    
+    # NOTE: GET THE FOLLOWING TO WORK
+    #dateCheck(apiDates, benchmark, assets[0]) # Sample check for dates matching
+
+    # Benchmark data
+    benchNav= adjClose['SPY']
+    benchRet= dailyRets(benchNav) # remember, this will get rid of x[0]
+
+    # Portfolio/Asset data
+    portNav= adjClose['BRK-A']
+    portRet= dailyRets(portNav)
+
+    # relevant date list for returns (datetime format)
+    TiingoPortDates= (apiDates['SPY'])[1:] # first date goes away b/c it is % change
+    dtPortDates=  isoToDatetime(TiingoPortDates)
+
+    ##################################################################        
+
+
+    # initializing final dictionary
+    portfolioStatistics= {}
+
+    # setting first entry (headline portfolio stats)
+    portfolioStatistics['Portfolio']= multiHorStats(dtPortDates, portRet, benchRet, eDate)
+
+    # completing same analysis for portfolio assets
+    # NOTE: for these need to be able to adjust for date ranges held
+    # Also: maybe asset level analysis is another button to initiate? (too fast to even notice?)
+    
+    
+    
+    for sub in assets:
+        # Portfolio/Asset data
+        assetNav= adjClose[sub]
+        assetRet= dailyRets(assetNav)
+        portfolioStatistics[sub]= multiHorStats(dtPortDates, assetRet, benchRet, eDate)
+    
+        print()
+        print('MHStats Completed: {}'.format(sub))
+        print()
+
+
+    return portfolioStatistics
+
 
 
 
@@ -368,15 +436,20 @@ if __name__ == "__main__":
     # Running genAttri
     # Should we pass on a benchmark? 
     # Maybe we can determine appropriate benchmark based on asset exposure
-    mhStats= genAttri()
+    portfolioStatistics= genAttri()
+    
 
-    for sub in mhStats:
+    print("Complete Portfolio Statistics: ")
+    print(portfolioStatistics)
+    print()
+    print()
+
+    for sub in portfolioStatistics:
         print()
         print(sub, ':')
-        print(mhStats[sub])
+        print(portfolioStatistics[sub])
         print()
         print()
-
 
 
 else:
