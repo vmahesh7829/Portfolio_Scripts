@@ -83,20 +83,34 @@ def getStockDict(stockSet: set,sDate,eDate):
 
 
 # using the library is waay faster. Probably because only 1 auth is needed
-def testTiingo():
+# bad part of the library is that it sends everything and we may just want close
+def tiingoMulti(stockList,sDate,eDate):
 
     # needs a list of tickers, a startdate, and an end date
     # that list should be a dictionary
     # that holds the first buy and last sell date
 
+    #sDate and eDate should be converted into iso here
+
     def thread_function(name,client,stock):
-        print("Thread %s: starting", stock)
         historical_prices = client.get_ticker_price(stock,
                                                 fmt='json',
-                                                startDate='2016-01-01',
-                                                endDate='2020-08-31',
+                                                startDate=sDate,
+                                                endDate=eDate,
                                                 frequency='daily')
-        print("Thread %s: finishing", stock)
+
+        closeDict = {}
+        for currDay in historical_prices:
+
+            in_date = currDay['date']
+
+            # set date key to be a date object
+            in_date = date(int(in_date[0:4]),int(in_date[5:7]),int(in_date[8:10]))
+            closeDict[in_date] = currDay['close']
+
+        nonlocal stockDictOut
+        stockDictOut[stock] = closeDict
+        print("Call %s: finished", name)
 
     config = {}
 
@@ -111,11 +125,8 @@ def testTiingo():
     client = TiingoClient(config)
 
 
-    stockList = ["MO","ANDV","V","JPM","NVDA","AMD","NOC","LMT"]
-    sDate = "01-01-2016"
-    eDate = "08-31-2020"
-
     threads = list()
+    stockDictOut = {}
 
     for index,stock in enumerate(stockList):
         print("Main    : create and start thread %d.", index)
@@ -124,8 +135,6 @@ def testTiingo():
         x.start()
 
     for index, thread in enumerate(threads):
-        print("Main    : before joining thread %d.", index)
         thread.join()
-        print("Main    : thread %d done", index)
 
-    print("exiting program")
+    return stockDictOut

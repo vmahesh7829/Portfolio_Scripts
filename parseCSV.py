@@ -219,7 +219,10 @@ def time_portfolio_list():
             all_stocks.add(trans.ticker)
 
 
-    stock_dict = GetStockHash(transaction_data,all_stocks)
+    start_date = transaction_data[0].date
+    end_date = transaction_data[-1].date
+
+    stock_dict = GetStockHashMulti(all_stocks,start_date,end_date)
 
     # for all_stocks
     #first day is day of first transaction
@@ -243,14 +246,13 @@ def time_portfolio_list():
 
 def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 
-
     curr_port = Portfolio(trade_days[0])
-
-
     next_ind = 0
     portNav = []
     dailyPortRet = []
     netFlows = 0
+
+    print(trans_data[0].name)
 
     for day in trade_days:
 
@@ -260,7 +262,7 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 
 
             # store all the withdrawals and deposits for the day
-            if (trans_data[next_ind].name == "Withdrawal" or trans_data[next_ind].name == "Deposit" ):
+            if ( (trans_data[next_ind].name == "Withdrawal") or (trans_data[next_ind].name == "Deposit") ):
                 netFlows += trans_data[next_ind].amount
             next_ind +=1
 
@@ -276,6 +278,11 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
         # on first day, return is endNav/net deposits
         # this will break if the user transfers stocks from another account
         if (len(dailyPortRet)==0 ):
+
+            if (netFlows == 0):
+                print(trans_data[0].name,trans_data[0].amount)
+                raise Exception("netFlows should not be 0")
+
             dailyPortRet.append(portNav[-1]/netFlows -1)
 
         elif(netFlows !=0):
@@ -300,7 +307,7 @@ if __name__ == "__main__":
     start = 10000
     for ret in dailyPortRet:
         start = start *(ret+1)
-        print(start)
+    print(start)
 
 else:
     print('Import: {}'.format(__file__))
