@@ -3,11 +3,14 @@ import datetime
 from datetime import date
 import pymongo
 
+import logging
+import threading
+import time
+
+from tiingo import TiingoClient
 
 import cProfile
 import re
-
-from tiingo import TiingoClient
 
 
 # IQfeed could be a good source for 100 dollar per month
@@ -60,11 +63,6 @@ def genTiingoDict(ticker: str, sDate, eDate):
 
 # sDate and eDate are of type Datetime
 def getStockDict(stockSet: set,sDate,eDate):
-    client = pymongo.MongoClient("mongodb+srv://DyAQ0qSyAdi1Udg9:DyAQ0qSyAdi1Udg9@apidatabank.drr3k.mongodb.net/historicalStockPrices?retryWrites=true&w=majority")
-    db = client.historicalStockPrices
-    posts = db.tiingoClose
-
-
 
     sDate = sDate.isoformat()
     eDate = eDate.isoformat()
@@ -80,18 +78,25 @@ def getStockDict(stockSet: set,sDate,eDate):
         print(f"Tiingo Call {counter} completed.")
         counter +=1
 
-    # saving close data to the database
-    # (need to understand the diff between this and adjusted close)
-    post_id = posts.insert_one(dbDict).inserted_id
+
     return stock_dict
 
 
 # using the library is waay faster. Probably because only 1 auth is needed
 def testTiingo():
 
-    stockList = ["MO","ANDV","V","JPM","NVDA","AMD","NOC","LMT"]
-    sDate = "01-01-2016"
-    eDate = "08-31-2020"
+    # needs a list of tickers, a startdate, and an end date
+    # that list should be a dictionary
+    # that holds the first buy and last sell date
+
+    def thread_function(name,client,stock):
+        print("Thread %s: starting", stock)
+        historical_prices = client.get_ticker_price(stock,
+                                                fmt='json',
+                                                startDate='2016-01-01',
+                                                endDate='2020-08-31',
+                                                frequency='daily')
+        print("Thread %s: finishing", stock)
 
     config = {}
 
@@ -105,12 +110,22 @@ def testTiingo():
     # Initialize
     client = TiingoClient(config)
 
-    for stock in stockList:
 
-        historical_prices = client.get_ticker_price(stock,
-                                                fmt='json',
-                                                startDate='2016-01-01',
-                                                endDate='2020-08-31',
-                                                frequency='daily')
+    stockList = ["MO","ANDV","V","JPM","NVDA","AMD","NOC","LMT"]
+    sDate = "01-01-2016"
+    eDate = "08-31-2020"
 
-        #print(historical_prices)
+    threads = list()
+
+    for index,stock in enumerate(stockList):
+        print("Main    : create and start thread %d.", index)
+        x = threading.Thread(target=thread_function, args=(index,client,stock,))
+        threads.append(x)
+        x.start()
+
+    for index, thread in enumerate(threads):
+        print("Main    : before joining thread %d.", index)
+        thread.join()
+        print("Main    : thread %d done", index)
+
+    print("exiting program")

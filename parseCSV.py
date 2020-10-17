@@ -113,6 +113,9 @@ class Transaction():
     # this takes in a dataframe row from TD Ameritrade
     # it then sets the transaction values appropriately
     # if an unexpected transaction is encountered, the program throws an error
+    # Deposits/Sales are positive
+    # Withdrawals/Purchases are negative
+
     def addTdTransaction (self,row):
 
         desc = row['DESCRIPTION']
@@ -146,7 +149,7 @@ class Transaction():
         elif (desc[0:7] == "ADR FEE"):
             self.amount = row['AMOUNT']
         elif (desc == "CLIENT REQUESTED ELECTRONIC FUNDING DISBURSEMENT (FUNDS NOW)"):
-            self.name == "Withdrawal"
+            self.name = "Withdrawal"
             self.amount = row['AMOUNT']
         elif (desc == "MISCELLANEOUS JOURNAL ENTRY"):
             self.name = "MISCELLANEOUS JOURNAL ENTRY"
@@ -206,9 +209,11 @@ def time_portfolio_list():
 
     #get all the tickers in transaction_data
     all_stocks = set()
-    first_stock = transaction_data[1].ticker
 
     # go through trade_days, and create a set of all the tickers
+    # create a portfolio list and make sure to deepcopy the stocks
+    # in each stock, store the cost basis as well
+    # also make allStocks a dict and store the first and last trading day
     for trans in transaction_data:
         if (trans.ticker!= None and trans.ticker not in all_stocks):
             all_stocks.add(trans.ticker)
@@ -216,7 +221,14 @@ def time_portfolio_list():
 
     stock_dict = GetStockHash(transaction_data,all_stocks)
 
-    # generate trade_days
+    # for all_stocks
+    #first day is day of first transaction
+    #last day is the day of the last transaction
+
+    # This gets a list of trading days by assuming that the first stock it grabs
+    # has data for the entire daterange
+
+    first_stock = next(iter(stock_dict))
 
     trade_days = []
     for currDay in stock_dict[first_stock]:
@@ -231,36 +243,64 @@ def time_portfolio_list():
 
 def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 
-    curr_port = Portfolio(trade_days[0])
-    curr_port.add_transaction(trans_data[0])
 
-    next_ind = 1
-    output = []
+    curr_port = Portfolio(trade_days[0])
+
+
+    next_ind = 0
+    portNav = []
+    dailyPortRet = []
+    netFlows = 0
 
     for day in trade_days:
 
         # if there was a transaction on the day, update curr_port with all of the days transactions
         while(next_ind<len(trans_data) and day == trans_data[next_ind].date):
             curr_port.add_transaction(trans_data[next_ind])
+
+
+            # store all the withdrawals and deposits for the day
+            if (trans_data[next_ind].name == "Withdrawal" or trans_data[next_ind].name == "Deposit" ):
+                netFlows += trans_data[next_ind].amount
             next_ind +=1
+
+
 
         #calculate the closing portfolio value
         curr_port_val = curr_port.cash_holdings
         for ticker in curr_port.stock_dict:
             curr_port_val += ( curr_port.stock_dict[ticker].num_shares * master_stock_dict[ticker][day])
-        output.append(curr_port_val)
+
+        portNav.append(curr_port_val)
+
+        # on first day, return is endNav/net deposits
+        # this will break if the user transfers stocks from another account
+        if (len(dailyPortRet)==0 ):
+            dailyPortRet.append(portNav[-1]/netFlows -1)
+
+        elif(netFlows !=0):
+            curr_port_val -= netFlows
+            dailyPortRet.append(curr_port_val/portNav[-2] -1)
+        else:
+            dailyPortRet.append(curr_port_val/portNav[-2] -1)
+
+        netFlows = 0
 
 
+    return (portNav,dailyPortRet,trade_days)
 
-    return (output,trade_days)
 
+if __name__ == "__main__":
+    out = time_portfolio_list()
+    output = time_series_from_trans(out[0],out[1],out[2])
+    portNav = output[0]
+    dailyPortRet = output[1]
+    tradeDays = output[2]
 
-# MAIN:
-out = time_portfolio_list()
-output = time_series_from_trans(out[0],out[1],out[2])
+    start = 10000
+    for ret in dailyPortRet:
+        start = start *(ret+1)
+        print(start)
 
-nav = output[0]
-tradeDays = output[1]
-
-print(nav)
-print(tradeDays)
+else:
+    print('Import: {}'.format(__file__))
