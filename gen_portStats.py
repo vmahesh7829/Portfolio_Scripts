@@ -10,6 +10,7 @@ import cProfile
 import re
 from tiingo import TiingoClient
 import bisect
+import matplotlib.pyplot as plt
 
 # IMPORT FILES
 from parseCSV import *
@@ -146,11 +147,11 @@ def information_ratio(portExcessReturn, x, indx):
 def retTruncate(rets, dtPortDates, sDate, eDate):
 
     #shortening a long list of returns    
-    sIndex= bisect.bisect(dtPortDates, sDate)
-    eIndex= bisect.bisect(dtPortDates, eDate)+1 # adding 1 so that it is inclusive
+    sIndex= bisect.bisect(dtPortDates, sDate)-1 # "-1" to literally give index position
+    eIndex= bisect.bisect(dtPortDates, eDate)-1 # ^^ same as above
 
     # creating a smaller list of returns
-    truncRets = rets[sIndex:eIndex]
+    truncRets = rets[sIndex:eIndex+1]
 
     return truncRets
 
@@ -231,6 +232,7 @@ def isoToDatetime(isoDates):
 def dtToISO(dtDates):
     # turning a list of datetime dates to iso dates
     # unclear whether this function will be needed (likely for storing into cloud)
+    # NOTE: this entire function is unnecessary
     isoDates=[]
     for sub in dtDates:
         #getting string equivalents
@@ -290,7 +292,7 @@ def assetStats(portRet, benchRet, riskFree, equityRP, sDate, eDate, argStats):
     stats['Beta']= portBeta
 
     portEexcessReturn= (portTReturn - benchTReturn)
-    stats['EexcessReturn']= round(portEexcessReturn,3)
+    stats['ExcessReturn']= round(portEexcessReturn,3)
 
     # keeping track of dates used for a horizon
     stats['sDate']= sDate
@@ -361,12 +363,53 @@ def multiHorStats(dtPortDates, portRet, benchRet, eDate, argStats, argHori):
         truncPortRet=   retTruncate(portRet, dtPortDates, adjSDate, eDate)    
         truncBenchRet= retTruncate(benchRet, dtPortDates, adjSDate, eDate) 
 
+        # can actually use exact same funciton to truncate dtPortDates
+        truncDtPortDates= retTruncate(dtPortDates, dtPortDates, adjSDate, eDate) 
+        print(truncDtPortDates[0:10])
+        print()
+        print()
+
+
         # Other rando assumptions needed
         riskFree= 0.010 # this needs to be calculated somehow
         equityRP= 0.045 # this needs to be calculated somehow
 
-        # generates horizon of statistics (it's a dictionary) within the stats dictionary
-        mhStats[sub]= assetStats(truncPortRet, truncBenchRet, riskFree, equityRP, adjSDate ,eDate, argStats)
+
+        if 'cuml' in argHori:
+
+            # Instead of getting a {} of stats, this will be a {} of {} of stats
+            #   1. ytd would usually just have {} of stats
+            #   2. this ytd would have {} of individual days, with a {} of stats
+            #   3. this allows us to extract a list of cumulative to make a chart where needed
+            #   4. this also allows for storage within big user {} in a way that still makes sense            
+            
+            # Defining the headline dictionary
+            mhStats[sub+'_cuml']={}
+
+
+            for i in range(5, len(truncPortRet)):
+                # don't forget that all DATES ARE INCLUSIVE
+                # start at 5 b/c we want at least full trading week
+                # also each of these will have a new associated eDate
+
+                
+                cuml_eDate= truncDtPortDates[i-1]
+
+                daily_truncPortRet= truncPortRet[:i] # [0:5) is [0:4] inclusive
+                daily_truncBenchRet= truncBenchRet[:i]
+                
+                mhStats[sub+'_cuml'][str(i)]= assetStats(daily_truncPortRet,
+                                                        daily_truncBenchRet,
+                                                        riskFree,
+                                                        equityRP,
+                                                        adjSDate,
+                                                        cuml_eDate,
+                                                        argStats)
+
+
+        else:
+            # generates horizon of statistics (it's a dictionary) within the stats dictionary
+            mhStats[sub]= assetStats(truncPortRet, truncBenchRet, riskFree, equityRP, adjSDate ,eDate, argStats)
 
     return mhStats
 
@@ -460,7 +503,7 @@ if __name__ == "__main__":
     # think of this as the defaults
 
     # making selections for horizons / stats 
-    argHori= ['ytd', '1yr', 'all'] # chosen horizons
+    argHori= ['ytd', 'cuml'] # chosen horizons
     argStats= ['alpha'] # chosen statistics
 
     # CALLING THE FUNCTION
@@ -479,6 +522,26 @@ if __name__ == "__main__":
     userData['portfolio']= multiHorStats(dtPortDates, portRet, benchRet, eDate, argStats, argHori)
 
     print(userData)
+
+
+    # testing cumulative alpha
+    x=[]
+    y=[]
+    for sub in userData['portfolio']['ytd_cuml']:
+        x+= [userData['portfolio']['ytd_cuml'][sub]['ExcessReturn']]
+        y+= [userData['portfolio']['ytd_cuml'][sub]['eDate']]
+    
+    data= [x,y]
+
+    #graph the index
+    fig, ax1= plt.subplots(figsize=(10,5))
+    ax1.plot(x)
+    ax1.set_title('YTD cuml alpha (BRK)')
+    ax1.set_xlabel('Date')
+    ax1.set_ylabel('alpha')
+    ax1.yaxis.tick_right()
+    plt.show()
+
 
 
 else:
