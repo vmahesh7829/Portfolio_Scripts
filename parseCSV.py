@@ -209,6 +209,7 @@ def time_portfolio_list():
 
     #get all the tickers in transaction_data
     all_stocks = set()
+    all_stocks.add('AAPL')
 
     # go through trade_days, and create a set of all the tickers
     # create a portfolio list and make sure to deepcopy the stocks
@@ -231,10 +232,8 @@ def time_portfolio_list():
     # This gets a list of trading days by assuming that the first stock it grabs
     # has data for the entire daterange
 
-    first_stock = next(iter(stock_dict))
-
     trade_days = []
-    for currDay in stock_dict[first_stock]:
+    for currDay in stock_dict['AAPL']:
         trade_days.append(currDay)
 
 
@@ -263,7 +262,7 @@ def time_series_from_trans(trans_data,trade_days,master_stock_dict):
 
             # store all the withdrawals and deposits for the day
             if ( (trans_data[next_ind].name == "Withdrawal") or (trans_data[next_ind].name == "Deposit") ):
-                netFlows += trans_data[next_ind].amount
+                netFlows = netFlows + trans_data[next_ind].amount
             next_ind +=1
 
 
