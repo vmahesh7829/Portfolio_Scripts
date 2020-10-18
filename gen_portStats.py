@@ -130,6 +130,7 @@ def treynor(portRet, beta, riskFree):
     tr= (compoundRets(portRet)-riskFree) / beta # CHECK NP.STD DOF
     return round(tr,3)
 
+
 def capture():
     return 'NA'
 
@@ -154,7 +155,7 @@ def retTruncate(rets, dtPortDates, sDate, eDate):
     return truncRets
 
 
-def horizonDates(portDates):
+def horizonDates(portDates, argHori):
     # generate dates that corespond w/ YTD, MTD, 1YR, etc
     # NOTE: should creat a way to see variance in estimate vs used
     #       1. if a difference extends beyond (let's say 5 days) it raises a flag
@@ -172,25 +173,34 @@ def horizonDates(portDates):
     # NOTE: these dates truncate lists of return data which means we don't need (-1) date b/c we're not calculating !!!
     # NOTE: QUESTION: SHOULD IT BE: (DAY or DAY+1) ????????? 
 
-    ytd= date(year, 1, 1)
-    while ytd not in portDates:
-        ytd= ytd+timedelta(1)
-    dates['ytd']= ytd
+    #conditionals allow us to make time periods optional
 
-    yr1= date(year-1, month, day)
-    while yr1 not in portDates:
-        yr1= yr1+timedelta(1)
-    dates['1yr']= yr1
+    allHori= 'all' in argHori # this would make everything TRUE
 
-    yr2= date(year-2, month, day)
-    while yr2 not in portDates:
-        yr2= yr2+timedelta(1)
-    dates['2yr']= yr2
+    if allHori or 'ytd' in argHori:
+        ytd= date(year, 1, 1)
+        while ytd not in portDates:
+            ytd= ytd+timedelta(1)
+        dates['ytd']= ytd
 
-    yr3= date(year-3, month, day)
-    while yr3 not in portDates:
-        yr3= yr3+timedelta(1)
-    dates['3yr']= yr3
+    if allHori or '1yr' in argHori:
+        yr1= date(year-1, month, day)
+        while yr1 not in portDates:
+            yr1= yr1+timedelta(1)
+        dates['1yr']= yr1
+
+    if allHori or '2yr' in argHori:
+        yr2= date(year-2, month, day)
+        while yr2 not in portDates:
+            yr2= yr2+timedelta(1)
+        dates['2yr']= yr2
+
+    if allHori or '3yr' in argHori:
+        yr3= date(year-3, month, day)
+        while yr3 not in portDates:
+            yr3= yr3+timedelta(1)
+        dates['3yr']= yr3
+
 
     # Currently unsupported date ranges (sDates)
     mtd= 'NA'
@@ -257,7 +267,7 @@ def dateCheck(apiDates, x,y):
         print('', 'DATES DO NOT MATCH UP !!!!')
 
 
-def assetStats(portRet, benchRet, riskFree, equityRP, sDate, eDate):
+def assetStats(portRet, benchRet, riskFree, equityRP, sDate, eDate, argStats):
 
     # ####
     # NOTE: THIS IS ESSENTIALLY A FUNCTION OF FUNCTIONS (will make it easier to loop later)
@@ -271,37 +281,63 @@ def assetStats(portRet, benchRet, riskFree, equityRP, sDate, eDate):
 
     # THESE FIRST ITEMS ARE REQUIRED VARIABLES FOR OTHER FUNCTIONS SO DEFINING THEM OUTSIDE DICT
     portTReturn= compoundRets(portRet)
-    stats['portTReturn']= portTReturn
+    stats['assetTReturn']= portTReturn
 
     benchTReturn= compoundRets(benchRet) # should probably use [-1]/[0]-1 # would be more accurate
     stats['benchTReturn']= benchTReturn
     
     portBeta= beta(portRet, benchRet)
-    stats['portBeta']= portBeta
+    stats['Beta']= portBeta
 
     portEexcessReturn= (portTReturn - benchTReturn)
-    stats['portEexcessReturn']= round(portEexcessReturn,3)
+    stats['EexcessReturn']= round(portEexcessReturn,3)
 
-    # ITEMS THAT ARE NOT INPUTS TO OTHER STATISTICS
-    stats['portAlpha']= alpha(portTReturn, riskFree, portBeta, equityRP)
-    stats['portInfoRatio']= information_ratio(portEexcessReturn, portRet, benchRet)
-    stats['portSharpe']= sharpe(portRet, riskFree)
-    stats['portTreynor']= treynor(portRet, portBeta, riskFree)
-    
-    # IFFY WAY OF CALCULATING VOL SUB 0 IN THIS RATIO - PLEASE CHECK
-    stats['sortino']= sortino(portRet, riskFree)
-
-    # HAVE NOT YET CREATED FORMULAS FOR THESE
-    stats['capture']= capture()
-    
     # keeping track of dates used for a horizon
     stats['sDate']= sDate
     stats['eDate']= eDate
     
 
+    # (Optional Statistics) ITEMS THAT ARE NOT INPUTS
+
+    allStats= 'all' in argStats # this would make everything TRUE
+
+    if allStats or 'alpha' in argStats:
+        stats['Alpha']= alpha(portTReturn, riskFree, portBeta, equityRP)
+    
+    if allStats or 'inforatio' in argStats:
+        stats['InfoRatio']= information_ratio(portEexcessReturn, portRet, benchRet)
+    
+    if allStats or 'sharpe' in argStats:
+        stats['Sharpe']= sharpe(portRet, riskFree)
+    
+    if allStats or 'treynor' in argStats:
+        stats['Treynor']= treynor(portRet, portBeta, riskFree)
+    
+    if allStats or 'sortino' in argStats:
+        # IFFY WAY OF CALCULATING VOL SUB 0 IN THIS RATIO - PLEASE CHECK
+        stats['Sortino']= sortino(portRet, riskFree)
+
+    if allStats or 'capture' in argStats:
+        # HAVE NOT YET CREATED FORMULAS FOR THESE
+        stats['Capture']= capture()
+    
+    
+
     return stats
 
-def multiHorStats(dtPortDates, portRet, benchRet, eDate): 
+
+
+def multiHorStats(dtPortDates, portRet, benchRet, eDate, argStats, argHori):
+
+    # THINGS TO CHECK/CONFIRM
+    print()
+    print("FOLLOWING ITEMS NEED TO BE CHECKED: ")
+    print()
+    print('Confirm downside VOL methodology in sortino() (single line if/for)')
+    print()
+    print('Get the date-check thing to work')
+    print()
+    print('HorizonDates() needs to be checked, or return an adjustment variance') 
 
     # genAttri will have portfolio + assets + dates to create mhStats
     # whole process / loop required for mhStats will be done in here instead
@@ -314,7 +350,7 @@ def multiHorStats(dtPortDates, portRet, benchRet, eDate):
 
     # this generates sDates for various horizons
     # REQUIRES DATETIME FORMAT
-    horDates= horizonDates(dtPortDates)
+    horDates= horizonDates(dtPortDates, argHori)
 
     # need to truncate based on various sDates from dates
     for sub in horDates:
@@ -330,102 +366,20 @@ def multiHorStats(dtPortDates, portRet, benchRet, eDate):
         equityRP= 0.045 # this needs to be calculated somehow
 
         # generates horizon of statistics (it's a dictionary) within the stats dictionary
-        mhStats[sub]= assetStats(truncPortRet, truncBenchRet, riskFree, equityRP, adjSDate ,eDate)
+        mhStats[sub]= assetStats(truncPortRet, truncBenchRet, riskFree, equityRP, adjSDate ,eDate, argStats)
 
     return mhStats
 
 
 
-def fullPortStats():
-    # this function does everything from start to finish
-    #   1. pulls parseCSV (temporarily just uses API data sets)
-    #   2. ...
-    #   3. Stocks -> Horizon -> data (three dictionaries)
-
-    # THINGS TO CHECK/CONFIRM
-    print()
-    print("FOLLOWING ITEMS NEED TO BE CHECKED: ")
-    print()
-    print('Confirm downside VOL methodology in sortino() (single line if/for)')
-    print()
-    print('Get the date-check thing to work')
-    print()
-    print('HorizonDates() needs to be checked, or return an adjustment variance')
-
-    # Generates stats from return streams, not NAV
-    # NOTE: assume YTD, MTD, QTD, 1YR, 2YR, 3YR, 5YR, 10YR, Inception, + custom date range
-
-    ######################################################################
-    ### TEMPORARY CODE, WILL REPLACE A LOT WITH PARSECSV OUTPUT
-
-    # ASSUMING BRK-A TO BE OUR PORTFOLIO
-    # ALL OF THE DATA IN THIS SECTION WILL ULTIMATELY BE PROVIDED BY PARSE CSV
-
-    # this date range will be provided by parseCSV
-    sDate = date(2015,12,31) 
-    eDate = date.today()-timedelta(1)
-
-    # ticker inputs for API
-    portfolio= 'BRK-A'
-    benchmark= 'SPY'
-    assets= ['AAPL', 'SQ', 'AGM', 'BAC', 'V', 'MSFT', 'BAC', 'BA']
-    
-    # combining inputs into single list
-    tiingoPull=[benchmark]+[portfolio]+assets
-    
-    # Dict of lists of dicts (by stock)
-    bigDict= BigDict_Tiingo(tiingoPull, sDate, eDate)
-
-    # Showing that 95% run-time is API pull 
-    print()
-    print("API COMPLETE!!!!!!!!!!!!")
 
 
-    # Extracting item lists
-    adjClose= extractBigDict(bigDict, 'adjClose')
-    apiDates= extractBigDict(bigDict, 'date')
-    
-    # NOTE: GET THE FOLLOWING TO WORK
-    #dateCheck(apiDates, benchmark, assets[0]) # Sample check for dates matching
-
-    # Benchmark data
-    benchNav= adjClose['SPY']
-    benchRet= dailyRets(benchNav) # remember, this will get rid of x[0]
-
-    # Portfolio/Asset data
-    portNav= adjClose['BRK-A']
-    portRet= dailyRets(portNav)
-
-    # relevant date list for returns (datetime format)
-    TiingoPortDates= (apiDates['SPY'])[1:] # first date goes away b/c it is % change
-    dtPortDates=  isoToDatetime(TiingoPortDates)
-
-    ##################################################################        
 
 
-    # initializing final dictionary
-    portfolioStatistics= {}
-
-    # setting first entry (headline portfolio stats)
-    portfolioStatistics['Portfolio']= multiHorStats(dtPortDates, portRet, benchRet, eDate)
-
-    # completing same analysis for portfolio assets
-    # NOTE: for these need to be able to adjust for date ranges held
-    # Also: maybe asset level analysis is another button to initiate? (too fast to even notice?)
-    
-    
-    for sub in assets:
-        # Portfolio/Asset data
-        assetNav= adjClose[sub]
-        assetRet= dailyRets(assetNav)
-        portfolioStatistics[sub]= multiHorStats(dtPortDates, assetRet, benchRet, eDate)
-    
-        print()
-        print('MHStats Completed: {}'.format(sub))
-        print()
 
 
-    return portfolioStatistics
+
+
 
 
 
@@ -452,20 +406,79 @@ if __name__ == "__main__":
     # hor= [hor1, hor2, ...]
     # stats= [sharepe, etc]
 
-    portfolioStatistics= fullPortStats()
+    ######################################################################
+    ### TEMPORARY CODE, WILL REPLACE A LOT WITH PARSECSV OUTPUT
+    ### THIS WILL ALL GO INTO GEN_ATTRI WHEN READY
+
+    # ASSUMING BRK-A TO BE OUR PORTFOLIO
+    # ALL OF THE DATA IN THIS SECTION WILL ULTIMATELY BE PROVIDED BY PARSE CSV
+
+    # this date range will be provided by parseCSV
+    sDate = date(2015,12,31) 
+    eDate = date.today()-timedelta(1)
+
+    # ticker inputs for API
+    portfolio= 'BRK-A'
+    benchmark= 'SPY'
+    assets= ['AAPL', 'SQ', 'AGM', 'BAC', 'V', 'MSFT', 'BAC', 'BA']
     
+    # combining inputs into single list
+    tiingoPull=[benchmark]+[portfolio]+assets
+    
+    # Dict of lists of dicts (by stock)
+    bigDict= BigDict_Tiingo(tiingoPull, sDate, eDate)
 
-    print("Complete Portfolio Statistics: ")
-    print(portfolioStatistics)
-    print()
-    print()
+    # Showing that 95% run-time is API pull 
+    print("API COMPLETE!!!!!!!!!!!!")
 
-    for sub in portfolioStatistics:
-        print()
-        print(sub, ':')
-        print(portfolioStatistics[sub])
-        print()
-        print()
+    # Extracting item lists
+    adjClose= extractBigDict(bigDict, 'adjClose')
+    apiDates= extractBigDict(bigDict, 'date')
+    
+    # NOTE: GET THE FOLLOWING TO WORK
+    #dateCheck(apiDates, benchmark, assets[0]) # Sample check for dates matching
+
+    # Benchmark data
+    benchNav= adjClose['SPY']
+    benchRet= dailyRets(benchNav) # remember, this will get rid of x[0]
+
+    # Portfolio/Asset data
+    portNav= adjClose['BRK-A']
+    portRet= dailyRets(portNav)
+
+    # relevant date list for returns (datetime format)
+    TiingoPortDates= (apiDates['SPY'])[1:] # first date goes away b/c it is % change
+    dtPortDates=  isoToDatetime(TiingoPortDates)
+
+    ##################################################################        
+    ##################################################################        
+    ##################################################################        
+    ##################################################################        
+    ##################################################################        
+    
+    # this is the code that will run at launch of program
+    # think of this as the defaults
+
+    # making selections for horizons / stats 
+    argHori= ['ytd', '1yr', 'all'] # chosen horizons
+    argStats= ['alpha'] # chosen statistics
+
+    # CALLING THE FUNCTION
+
+    # initializing final dictionary
+    userData= {}
+
+
+    # completing same analysis for portfolio assets
+    # NOTE: for these need to be able to adjust for date ranges held
+    # Also: maybe asset level analysis is another button to initiate? (too fast to even notice?)
+
+    # the idea is that userData is the big user data dictionary:
+    # 1. as new information is loaded (bc a button was clicked) it can then be stored withing this
+    #    dictionary to prevent having to re-load things 
+    userData['portfolio']= multiHorStats(dtPortDates, portRet, benchRet, eDate, argStats, argHori)
+
+    print(userData)
 
 
 else:
