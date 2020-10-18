@@ -27,60 +27,6 @@ import re
 # Returns a dictionary with date as the key and adjusted close
 # as the value for the inputted daterange
 
-def genTiingoDict(ticker: str, sDate, eDate):
-
-    token = "&token=a6051dc9e9d1140d8322de2b99755165d84f9671"
-
-
-    reqBody = "https://api.tiingo.com/tiingo/daily/"+ticker+'/prices?startDate='
-    reqBody = reqBody +sDate+ '&endDate=' + eDate+token+"&columns=close"
-
-    headers = {
-        'Content-Type': 'application/json'
-    }
-    requestResponse = requests.get(reqBody, headers=headers)
-
-    pData = requestResponse.json()
-
-    stock_Dict = {}
-    closeDict = {}
-
-    for currDay in pData:
-
-        in_date = currDay['date']
-
-        # set date key to be a date object
-        in_date = date(int(in_date[0:4]),int(in_date[5:7]),int(in_date[8:10]))
-        stock_Dict[in_date] = currDay['close']
-
-        # push to db with key as a date string
-        closeDict[currDay['date'][0:10]]= currDay['close']
-
-        # also save close price to database
-
-
-    return (stock_Dict,closeDict)
-
-# sDate and eDate are of type Datetime
-def getStockDict(stockSet: set,sDate,eDate):
-
-    sDate = sDate.isoformat()
-    eDate = eDate.isoformat()
-
-    stock_dict = {}
-    dbDict = {}
-
-    counter = 1
-    for stock in stockSet:
-        out = genTiingoDict(stock,sDate,eDate)
-        stock_dict[stock] = out[0]
-        dbDict[stock] = out[1]
-        print(f"Tiingo Call {counter} completed.")
-        counter +=1
-
-
-    return stock_dict
-
 
 # using the library is waay faster. Probably because only 1 auth is needed
 # bad part of the library is that it sends everything and we may just want close
