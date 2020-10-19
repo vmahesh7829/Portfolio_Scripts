@@ -18,15 +18,17 @@ from gen_date_range import *
 from api_pulls import *
 
 # NOTE: 
-# SOME STEPS TO FOLLOW / REFER TO:
-#   1. pull data
-#   2. get date range
-#   3, get SPY data
-#   4. make sure all lists are same dimension etc
-#   5. create funtions that produce analysis on data
+# WHAT'S GOING ON: 
+    # 1. many mini functions that compute individual stats
+    # 2. assetStats() calls all those mini functions for provided list of returns and outputs {}
+    #   o inputted return list is already truncated for user input of YTD/MTD/1YR etc. 
+    # 3. multiHorStats() truncates return data, then passes it to assetStats()
+    #   o returns {} of {}, since assetStats() returns a dictionary, and they're organized by horizon
+    #   o also allows for cumulative statistics that develop one day at a time
+    # 4. xxxx
+    # 5. xxxx
+    # 6. xxxx
 
-# STILL REQUIRED:
-#   1. function that truncates return list from parseCSV to match diff date ranges
 
 ###############################################################################################
 ## FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS ##
@@ -328,7 +330,6 @@ def assetStats(portRet, benchRet, riskFree, equityRP, sDate, eDate, argStats):
     return stats
 
 
-
 def multiHorStats(dtPortDates, portRet, benchRet, eDate, argStats, argHori):
 
     # THINGS TO CHECK/CONFIRM
@@ -411,18 +412,9 @@ def multiHorStats(dtPortDates, portRet, benchRet, eDate, argStats, argHori):
             # generates horizon of statistics (it's a dictionary) within the stats dictionary
             mhStats[sub]= assetStats(truncPortRet, truncBenchRet, riskFree, equityRP, adjSDate ,eDate, argStats)
 
+
+
     return mhStats
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -430,119 +422,7 @@ def multiHorStats(dtPortDates, portRet, benchRet, eDate, argStats, argHori):
 # MAIN:
 if __name__ == "__main__":
 
-    # Running genAttri
-    # Should we pass on a benchmark? 
-    # Maybe we can determine appropriate benchmark based on asset exposure
-
-    # Calling genAttri() should allow for non-default loadings 
-    # This would allow for same function to be used for cumulative statistics (for graphing)
-
-
-    # Pass: (and we can pass through lists too) 
-    #     1. statistic - assetStats()
-    #     2. horizons - multiHorStats() 
-    #     3. asset - genAttri()
-
-    
-    # NEED TO PASS STUFF
-    # x= [portfolio, assets, etc]
-    # hor= [hor1, hor2, ...]
-    # stats= [sharepe, etc]
-
-    ######################################################################
-    ### TEMPORARY CODE, WILL REPLACE A LOT WITH PARSECSV OUTPUT
-    ### THIS WILL ALL GO INTO GEN_ATTRI WHEN READY
-
-    # ASSUMING BRK-A TO BE OUR PORTFOLIO
-    # ALL OF THE DATA IN THIS SECTION WILL ULTIMATELY BE PROVIDED BY PARSE CSV
-
-    # this date range will be provided by parseCSV
-    sDate = date(2015,12,31) 
-    eDate = date.today()-timedelta(1)
-
-    # ticker inputs for API
-    portfolio= 'BRK-A'
-    benchmark= 'SPY'
-    assets= ['AAPL', 'SQ', 'AGM', 'BAC', 'V', 'MSFT', 'BAC', 'BA']
-    
-    # combining inputs into single list
-    tiingoPull=[benchmark]+[portfolio]+assets
-    
-    # Dict of lists of dicts (by stock)
-    bigDict= BigDict_Tiingo(tiingoPull, sDate, eDate)
-
-    # Showing that 95% run-time is API pull 
-    print("API COMPLETE!!!!!!!!!!!!")
-
-    # Extracting item lists
-    adjClose= extractBigDict(bigDict, 'adjClose')
-    apiDates= extractBigDict(bigDict, 'date')
-    
-    # NOTE: GET THE FOLLOWING TO WORK
-    #dateCheck(apiDates, benchmark, assets[0]) # Sample check for dates matching
-
-    # Benchmark data
-    benchNav= adjClose['SPY']
-    benchRet= dailyRets(benchNav) # remember, this will get rid of x[0]
-
-    # Portfolio/Asset data
-    portNav= adjClose['BRK-A']
-    portRet= dailyRets(portNav)
-
-    # relevant date list for returns (datetime format)
-    TiingoPortDates= (apiDates['SPY'])[1:] # first date goes away b/c it is % change
-    dtPortDates=  isoToDatetime(TiingoPortDates)
-
-    ##################################################################        
-    ##################################################################        
-    ##################################################################        
-    ##################################################################        
-    ##################################################################        
-    
-    # this is the code that will run at launch of program
-    # think of this as the defaults
-
-    # making selections for horizons / stats 
-    argHori= ['ytd', 'cuml'] # chosen horizons
-    argStats= ['alpha'] # chosen statistics
-
-    # CALLING THE FUNCTION
-
-    # initializing final dictionary
-    userData= {}
-
-
-    # completing same analysis for portfolio assets
-    # NOTE: for these need to be able to adjust for date ranges held
-    # Also: maybe asset level analysis is another button to initiate? (too fast to even notice?)
-
-    # the idea is that userData is the big user data dictionary:
-    # 1. as new information is loaded (bc a button was clicked) it can then be stored withing this
-    #    dictionary to prevent having to re-load things 
-    userData['portfolio']= multiHorStats(dtPortDates, portRet, benchRet, eDate, argStats, argHori)
-
-    print(userData)
-
-
-    # testing cumulative alpha
-    x=[]
-    y=[]
-    for sub in userData['portfolio']['ytd_cuml']:
-        x+= [userData['portfolio']['ytd_cuml'][sub]['ExcessReturn']]
-        y+= [userData['portfolio']['ytd_cuml'][sub]['eDate']]
-    
-    data= [x,y]
-
-    #graph the index
-    fig, ax1= plt.subplots(figsize=(10,5))
-    ax1.plot(x)
-    ax1.set_title('YTD cuml alpha (BRK)')
-    ax1.set_xlabel('Date')
-    ax1.set_ylabel('alpha')
-    ax1.yaxis.tick_right()
-    plt.show()
-
-
+    print('NOTHING TO SHOW HERE!')
 
 else:
     print('Import: {}'.format(__file__))
