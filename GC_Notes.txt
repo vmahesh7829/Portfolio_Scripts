@@ -1,4 +1,10 @@
 
 
 
-Main script
+gen_attri.py
+- currently main consolidator file that pulls from other files
+
+
+
+gen_portStats.py
+- this file contains main function (and other functions that called within it) to generate dictionary of stats
