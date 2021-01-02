@@ -31,74 +31,18 @@ from api_pulls import *
 
 
 ###############################################################################################
-## FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS FUCNTIONS ##
-###############################################################################################
+## FUCNTIONS - PORTFOLIO STATISTICS
 
-def BigDict_Tiingo(stockList, sDate, eDate):
-    # pulls list (per stock) of daily dictionaries (includes open/close/etc.)
-
-    # init the configurations
-    config = {}
-
-    # To reuse the same HTTP Session across API calls (and have better performance), include a session key.
-    config['session'] = True
-
-    # If you don't have your API key as an environment variable,
-    # pass it in via a configuration dictionary.
-    config['api_key'] = "a6051dc9e9d1140d8322de2b99755165d84f9671"
-
-    # Initialize
-    client = TiingoClient(config)
-
-    # NOTE: 
-    # Dictionary (all stocks) of lists (all days per stock) of dictionaries (data per day)
-    bigDict= {}
-
-    for stock in stockList:
-
-        # pulling data
-        # NOTE: structure:
-        # get a list of dictionaries per day with info incl adjClose, volume, etc
-        historical_data = client.get_ticker_price(stock,
-                                                fmt='json',
-                                                startDate=sDate,
-                                                endDate=eDate,
-                                                frequency='daily')
-
-        # Assigning a stock pull to the big dictionary 
-        bigDict[stock]= historical_data
-
-    return bigDict
-
-
-def extractBigDict(bigDict, item):
-    # turn big dict into dictionaries of data-level lists (e.g. adjusted close, divs)
-    
-    # empty dictionary
-    selection= {}
-
-    for stock in bigDict:
-
-        # stock in bigDict -> dictionary keys (=stock strings)
-        # bigDict[stock] -> list of daily dictionarys (=daily stock stats) for given stock
-        # formulas pull chosen statistic (e.g. adjClose), and create a list of chosen stat
-        # places list of chosen stat in dictionary of chosen stats attached to stock 
-
-        selection[stock]=  np.array([sub[item] for sub in bigDict[stock]])
-        
-    return selection
+def dailyRets(close):
+    # calculate an array of returns (assumes given frequency e.g. daily, monthly, etc.)
+    rets= close[1:]/close[:-1]-1
+    return rets
 
 
 def compoundRets(rets):
     # compounds an array of returns to get return over period
     ret= np.prod(rets+1)-1
     return round(ret,3)
-
-
-def dailyRets(vals):
-    # calculate an array of returns (assumes given frequency e.g. daily, monthly, etc.)
-    rets= vals[1:]/vals[:-1]-1
-    return rets
 
 
 def beta(x, indx):
@@ -146,11 +90,16 @@ def information_ratio(portExcessReturn, x, indx):
     return round(infoRatio,3)
 
 
-def retTruncate(rets, dtPortDates, sDate, eDate):
+###############################################################################################
+## FUCNTIONS - OTHER
 
+def retTruncate(rets, dtPortDates, sDate, eDate):
     #shortening a long list of returns    
     sIndex= bisect.bisect(dtPortDates, sDate)-1 # "-1" to literally give index position
     eIndex= bisect.bisect(dtPortDates, eDate)-1 # ^^ same as above
+    
+    #print('TEST')
+    #print(bisect.bisect(dtPortDates, date(2010,5,5))-1)
 
     # creating a smaller list of returns
     truncRets = rets[sIndex:eIndex+1]
@@ -178,32 +127,35 @@ def horizonDates(portDates, argHori):
 
     #conditionals allow us to make time periods optional
 
-    allHori= 'all' in argHori # this would make everything TRUE
+    horiMoving= argHori['moving']
 
-    if allHori or 'ytd' in argHori:
+    allHori= 'all' in horiMoving # this would make everything TRUE
+
+    if allHori or 'ytd' in horiMoving:
         ytd= date(year, 1, 1)
         while ytd not in portDates:
-            ytd= ytd+timedelta(1)
-        dates['ytd']= ytd
+            ytd= ytd+timedelta(1) #running this on new years makes this infinite
+        dates['ytd']= (ytd, today)
 
-    if allHori or '1yr' in argHori:
+    if allHori or '1yr' in horiMoving:
         yr1= date(year-1, month, day)
         while yr1 not in portDates:
             yr1= yr1+timedelta(1)
-        dates['1yr']= yr1
+        dates['1yr']= (yr1, today)
 
-    if allHori or '2yr' in argHori:
+    if allHori or '2yr' in horiMoving:
         yr2= date(year-2, month, day)
         while yr2 not in portDates:
             yr2= yr2+timedelta(1)
-        dates['2yr']= yr2
+        dates['2yr']= (yr2, today)
 
-    if allHori or '3yr' in argHori:
+    if allHori or '3yr' in horiMoving:
         yr3= date(year-3, month, day)
         while yr3 not in portDates:
             yr3= yr3+timedelta(1)
-        dates['3yr']= yr3
+        dates['3yr']= (yr3, today)
 
+    print('made it through ArgHori')
 
     # Currently unsupported date ranges (sDates)
     mtd= 'NA'
@@ -213,10 +165,17 @@ def horizonDates(portDates, argHori):
     inception= 'NA'
     custom= 'NA'
 
-    # Additional options that should ultimately be included
-    fy2020= 'NA'
-    fy2019= 'NA'
-    fy2018= 'NA'
+    # This handles pass-through of years
+    horiYears= argHori['years']
+    
+    for _ in horiYears:
+        a= date(_,1,1)
+        b= date(_,12,31)
+        while a not in portDates:
+            a= a+timedelta(1)
+        while b not in portDates:
+            b= b-timedelta(1)
+        dates[str(_)]= (a, b)
 
     return dates    
 
@@ -266,9 +225,13 @@ def dtToISO(dtDates):
     return isoDates
 
 
-def dateCheck(apiDates, x,y):
+def dateCheck(apiDates, x,y): # completely forgotten what this was originally made for
     if (apiDates[x])[1:] != (apiDates[y])[1:]:
         print('', 'DATES DO NOT MATCH UP !!!!')
+
+
+###############################################################################################
+## FUCNTIONS - MAIN FUNCTIONS
 
 
 def assetStats(portRet, benchRet, riskFree, equityRP, sDate, eDate, argStats):
@@ -285,15 +248,14 @@ def assetStats(portRet, benchRet, riskFree, equityRP, sDate, eDate, argStats):
 
     # THESE FIRST ITEMS ARE REQUIRED VARIABLES FOR OTHER FUNCTIONS SO DEFINING THEM OUTSIDE DICT
     portTReturn= compoundRets(portRet)
-    stats['assetTReturn']= portTReturn
-
-    benchTReturn= compoundRets(benchRet) # should probably use [-1]/[0]-1 # would be more accurate
-    stats['benchTReturn']= benchTReturn
-    
+    benchTReturn= compoundRets(benchRet)
     portBeta= beta(portRet, benchRet)
-    stats['Beta']= portBeta
-
     portEexcessReturn= (portTReturn - benchTReturn)
+    
+    # These are default statistics for a vector of returns
+    stats['assetTReturn']= portTReturn
+    stats['benchTReturn']= benchTReturn
+    stats['Beta']= portBeta
     stats['ExcessReturn']= round(portEexcessReturn,3)
 
     # keeping track of dates used for a horizon
@@ -302,7 +264,6 @@ def assetStats(portRet, benchRet, riskFree, equityRP, sDate, eDate, argStats):
     
 
     # (Optional Statistics) ITEMS THAT ARE NOT INPUTS
-
     allStats= 'all' in argStats # this would make everything TRUE
 
     if allStats or 'alpha' in argStats:
@@ -326,11 +287,16 @@ def assetStats(portRet, benchRet, riskFree, equityRP, sDate, eDate, argStats):
         stats['Capture']= capture()
     
     
-
     return stats
 
 
-def multiHorStats(dtPortDates, portRet, benchRet, eDate, argStats, argHori):
+# if we want, we can take date range outside of this formula rather than passing through a list
+def multiHorStats(dtPortDates, portRet, benchRet, argStats, argHori):
+
+    # really want this to be sDate, eDate, argStats
+    # argHori will no longer be list, just 'cuml' or 'static'
+    # different date ranges will be generated outside of the function
+    # want to make this more of a black box
 
     # THINGS TO CHECK/CONFIRM
     print()
@@ -358,65 +324,28 @@ def multiHorStats(dtPortDates, portRet, benchRet, eDate, argStats, argHori):
     # need to truncate based on various sDates from dates
     for sub in horDates:
         # start date for horizon
-        adjSDate= horDates[sub]
+        adjSDate= horDates[sub][0]
+        adjEDate= horDates[sub][1]
 
         # Shortening return streams to match horizon
-        truncPortRet=   retTruncate(portRet, dtPortDates, adjSDate, eDate)    
-        truncBenchRet= retTruncate(benchRet, dtPortDates, adjSDate, eDate) 
+        truncPortRet=   retTruncate(portRet, dtPortDates, adjSDate, adjEDate)    
+        truncBenchRet= retTruncate(benchRet, dtPortDates, adjSDate, adjEDate) 
 
         # can actually use exact same funciton to truncate dtPortDates
-        truncDtPortDates= retTruncate(dtPortDates, dtPortDates, adjSDate, eDate) 
+        truncDtPortDates= retTruncate(dtPortDates, dtPortDates, adjSDate, adjEDate) 
         print(truncDtPortDates[0:10])
         print()
         print()
-
 
         # Other rando assumptions needed
         riskFree= 0.010 # this needs to be calculated somehow
         equityRP= 0.045 # this needs to be calculated somehow
 
-
-        if 'cuml' in argHori:
-
-            # Instead of getting a {} of stats, this will be a {} of {} of stats
-            #   1. ytd would usually just have {} of stats
-            #   2. this ytd would have {} of individual days, with a {} of stats
-            #   3. this allows us to extract a list of cumulative to make a chart where needed
-            #   4. this also allows for storage within big user {} in a way that still makes sense            
-            
-            # Defining the headline dictionary
-            mhStats[sub+'_cuml']={}
-
-
-            for i in range(5, len(truncPortRet)):
-                # don't forget that all DATES ARE INCLUSIVE
-                # start at 5 b/c we want at least full trading week
-                # also each of these will have a new associated eDate
-
-                
-                cuml_eDate= truncDtPortDates[i-1]
-
-                daily_truncPortRet= truncPortRet[:i] # [0:5) is [0:4] inclusive
-                daily_truncBenchRet= truncBenchRet[:i]
-                
-                mhStats[sub+'_cuml'][str(i)]= assetStats(daily_truncPortRet,
-                                                        daily_truncBenchRet,
-                                                        riskFree,
-                                                        equityRP,
-                                                        adjSDate,
-                                                        cuml_eDate,
-                                                        argStats)
-
-
-        else:
-            # generates horizon of statistics (it's a dictionary) within the stats dictionary
-            mhStats[sub]= assetStats(truncPortRet, truncBenchRet, riskFree, equityRP, adjSDate ,eDate, argStats)
-
+        # generates horizon of statistics (it's a dictionary) within the stats dictionary
+        mhStats[sub]= assetStats(truncPortRet, truncBenchRet, riskFree, equityRP, adjSDate , adjEDate,  argStats)
 
 
     return mhStats
-
-
 
 
 # MAIN:
