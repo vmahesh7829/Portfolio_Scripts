@@ -56,36 +56,41 @@ def default_attri(userData):
     
     # Horizon arguments
     argHori= {}
-    argHori['moving']= ['2yr']
-    argHori['years']= [2019]
-    argHori['custom']= 'NA'
+    argHori['moving']= ['1yr']
+    argHori['years']= [2019, 2020]
 
+    # Custom horizons
+    # Going to provide a list of tuples, each tuple is a date range
+    # Need to generate a better way to get these
+    #   o for example: using buy/sell dates from list of trades
+    a1= date(2019,1,5)
+    b1= date(2019,4,15)
+    argHori['custom']= [(a1,b1)]
 
     # Statistic arguments
     argStats= ['alpha'] # chosen statistics
-
 
     userData['portfolio']= multiHorStats(dtPortDates, portRet, benchRet, argStats, argHori)
 
     return userData
 
 
+
 if __name__ == "__main__":
     
-
     # initializing {} for all user data
     
     userData= {}
     userData['portfolio']= {}
-
-
     userData= default_attri(userData)
-    print(userData)
 
+    print(userData)
 
     ###########################################################################################
     ###########################################################################################
     ############### TESTING THE CUML STUFF, THIS WILL GO INTO FIGS FILE AT SOME POINT
+
+
 
     """
     # testing cumulative alpha
@@ -105,8 +110,8 @@ if __name__ == "__main__":
     ax1.set_ylabel('alpha')
     ax1.yaxis.tick_right()
     plt.show()
-
 """
+
 
 else:
     print('Import: {}'.format(__file__))

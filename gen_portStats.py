@@ -102,7 +102,7 @@ def retTruncate(rets, dtPortDates, sDate, eDate):
     #print(bisect.bisect(dtPortDates, date(2010,5,5))-1)
 
     # creating a smaller list of returns
-    truncRets = rets[sIndex:eIndex+1]
+    truncRets = rets[sIndex:eIndex+1] # need the +1 to be inclusive (always forget this)
 
     return truncRets
 
@@ -129,55 +129,90 @@ def horizonDates(portDates, argHori):
 
     horiMoving= argHori['moving']
 
-    allHori= 'all' in horiMoving # this would make everything TRUE
+    if horiMoving: # passing an empty list results in moving part being skipped
 
-    if allHori or 'ytd' in horiMoving:
-        ytd= date(year, 1, 1)
-        while ytd not in portDates:
-            ytd= ytd+timedelta(1) #running this on new years makes this infinite
-        dates['ytd']= (ytd, today)
+        allHori= 'all' in horiMoving # this would make everything TRUE
 
-    if allHori or '1yr' in horiMoving:
-        yr1= date(year-1, month, day)
-        while yr1 not in portDates:
-            yr1= yr1+timedelta(1)
-        dates['1yr']= (yr1, today)
+        # need some rules (EG YTD doesn't work on YYYY/1/1)
+        # for YTD, unless we're ~5days into the year, we're not going to allow for it
+        test_YTD= date(year, 1,5)
+        if today > test_YTD:
+            if allHori or 'ytd' in horiMoving:
+                ytd= date(year, 1, 1)
+                while ytd not in portDates:
+                    ytd= ytd+timedelta(1) #running this on new years makes this infinite
+                dates['ytd']= (ytd, today)
 
-    if allHori or '2yr' in horiMoving:
-        yr2= date(year-2, month, day)
-        while yr2 not in portDates:
-            yr2= yr2+timedelta(1)
-        dates['2yr']= (yr2, today)
+        if allHori or '1yr' in horiMoving:
+            yr1= date(year-1, month, day)
+            while yr1 not in portDates:
+                yr1= yr1+timedelta(1)
+            dates['1yr']= (yr1, today)
 
-    if allHori or '3yr' in horiMoving:
-        yr3= date(year-3, month, day)
-        while yr3 not in portDates:
-            yr3= yr3+timedelta(1)
-        dates['3yr']= (yr3, today)
+        if allHori or '2yr' in horiMoving:
+            yr2= date(year-2, month, day)
+            while yr2 not in portDates:
+                yr2= yr2+timedelta(1)
+            dates['2yr']= (yr2, today)
 
-    print('made it through ArgHori')
+        if allHori or '3yr' in horiMoving:
+            yr3= date(year-3, month, day)
+            while yr3 not in portDates:
+                yr3= yr3+timedelta(1)
+            dates['3yr']= (yr3, today)
+    
+        # Currently unsupported date ranges (sDates)
+        mtd= 'NA'
+        qtd= 'NA'
+        yr5= 'NA'
+        yr10= 'NA'
+        inception= 'NA'
+        custom= 'NA'
 
-    # Currently unsupported date ranges (sDates)
-    mtd= 'NA'
-    qtd= 'NA'
-    yr5= 'NA'
-    yr10= 'NA'
-    inception= 'NA'
-    custom= 'NA'
+    else:
+        print('No MOVING horizon (YTD, MTD, etc)')
 
+    
     # This handles pass-through of years
     horiYears= argHori['years']
+
+    if horiYears:
     
-    for _ in horiYears:
-        a= date(_,1,1)
-        b= date(_,12,31)
-        while a not in portDates:
-            a= a+timedelta(1)
-        while b not in portDates:
-            b= b-timedelta(1)
-        dates[str(_)]= (a, b)
+        for _ in horiYears:
+            a= date(_,1,1)
+            b= date(_,12,31)
+            while a not in portDates:
+                a= a+timedelta(1)
+            while b not in portDates:
+                b= b-timedelta(1)
+            dates[str(_)]= (a, b)
+    
+    else: 
+        print('No standalone years (2019, 2018, etc')
+
+
+    # This handles pass-through of custom ranges
+    horiCust= argHori['custom']
+
+    if horiCust:
+
+        for _ in horiCust:
+            a= _[0]
+            b= _[1]
+            while a not in portDates:
+                a= a+timedelta(1)
+            while b not in portDates:
+                b= b-timedelta(1)
+            dates[str(_)]= (a, b)
+    
+    else:
+        print('No custom date ranges')
+
 
     return dates    
+
+
+
 
 def isoToDatetime(isoDates):
     # turning a list of iso dates into a list of datetime dates
