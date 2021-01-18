@@ -208,7 +208,6 @@ if __name__ == "__main__":
         print(i[0], i[2].date, i[2].time, i[2].ticker, i[2].dShares, i[2].endShares)
 
 
-
     print()
     print()
     print('checking over dividends: ')
@@ -216,7 +215,6 @@ if __name__ == "__main__":
     for i in test:
         #print(i)
         print(i[0],i[2].date, i[2].ticker, i[2].divValue)
-
 
 
     print()
