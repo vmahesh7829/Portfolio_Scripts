@@ -88,7 +88,6 @@ def parseIBKR(activityLedger, csvPath):
             tradeInstance.currency= row['Currency'] # getting the currency of the trade
             tradeInstance.asset= row['Asset Category'] # grabbing the asset cateogy (stock, ...)
 
-
             if ticker in activityLedger:
 
                 prevTotal= activityLedger[ticker][-1][1].endShares #previous transaction endShares
@@ -187,6 +186,17 @@ def parseIBKR(activityLedger, csvPath):
     return activityLedger
 
 
+def getStockList(activityLedger):
+    # this is how we can get a stock list
+    stockList=[]
+    for key in activityLedger: # go through every key
+        sub= activityLedger[key] # get the list of the key
+        subTicker= sub[0][1].asset # get the asset attribute contained in the list
+        if subTicker == 'Stocks': # if the asset attribute is a stock, we keep the key for stock list
+            stockList.append(key) # appending the key of current iteration to the list (since instance reps a "Stocks")
+    return stockList
+
+
 
 if __name__ == "__main__":
 
@@ -199,7 +209,12 @@ if __name__ == "__main__":
     activityLedger= parseIBKR(activityLedger, gcPath2019)
     activityLedger= parseIBKR(activityLedger, gcPath2020)
 
+    stockList= getStockList(activityLedger)
+    print(stockList)
 
+
+
+    # BUNCH OF TESTS
     print()
     print()
     print('checking over trades: ')
@@ -234,7 +249,6 @@ if __name__ == "__main__":
     for i in test:
         #print(i)
         print(i[0],i[1].date, i[1].deposit, i[1].withdrawal)
-
 
 
 else:
