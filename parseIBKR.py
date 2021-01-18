@@ -35,6 +35,23 @@ class Transaction:
         # interest
         self.interest= None
 
+def getSection(df, index):
+    # GETTING SPECIFIC SECTION
+    section= df.loc[index] # getting everything that is a trade
+    newHeader= section.iloc[0] # assigning first row as headers (which they are in CSV)
+    section= section.iloc[1:] # making DF w/o the first row
+    section.columns= newHeader # assigning that header to new DF
+    dim= section.shape # dimensions (rows,cols) which allows for indexing
+    return section, dim
+
+
+def parseIBKR(activityLedger):
+
+    activityLedger= 1
+
+    return activityLedger
+
+
 
 if __name__ == "__main__":
 
@@ -51,11 +68,7 @@ if __name__ == "__main__":
     
     
     # GETTING TRADE DATA
-    trades= df.loc['Trades'] # getting everything that is a trade
-    newHeader= trades.iloc[0] # assigning first row as headers (which they are in CSV)
-    trades= trades.iloc[1:] # making DF w/o the first row
-    trades.columns= newHeader # assigning that header to new DF
-    dim= trades.shape # dimensions (rows,cols) which allows for indexing
+    trades, dim= getSection(df, 'Trades') # getting everything that is a trade
 
     # LOOP THROUGH ALL TRADES TO GET THE DATA
     for i in range(dim[0]):
@@ -102,14 +115,8 @@ if __name__ == "__main__":
 
 
     # GETTING DIVIDEND DATA
-    dividends= df.loc['Dividends'] # getting everything that is a dividend
-    #print(dividends)
-    newHeader= dividends.iloc[0] # assigning first row as headers (which they are in CSV)
-    dividends= dividends.iloc[1:] # making DF w/o the first row
-    dividends.columns= newHeader # assigning that header to new DF
-    dim= dividends.shape # dimensions (rows,cols) which allows for indexing
-
-    
+    dividends, dim= getSection(df, 'Dividends') # getting everything that is a trade
+  
     # LOOP THROUGH ALL DIVIDENDS TO GET THE DATA
     for i in range(dim[0]):
         
@@ -124,29 +131,24 @@ if __name__ == "__main__":
             
             divInstance= Transaction('Dividend') # initializing the instance for the dividend
             
-            divInstance.ticker= ticker
-            divInstance.divValue= amount
-            divInstance.currency= curr
-            divInstance.date= date
+            divInstance.ticker= ticker # adding associated ticker
+            divInstance.divValue= amount # dividend amount
+            divInstance.currency= curr  # currency 
+            divInstance.date= date # date of dividend
 
             if 'Dividends' in activityLedger:
                 
-                activityLedger['Dividends'].append((date, ticker, divInstance))
+                activityLedger['Dividends'].append((date, ticker, divInstance)) # adding to divident list
             
             else: 
                 activityLedger['Dividends']=[]
-                activityLedger['Dividends'].append((date, ticker, divInstance))
+                activityLedger['Dividends'].append((date, ticker, divInstance)) # creating a dividend list if it does not exist
 
     #print('Activity ledger with dividends too')
     #print(activityLedger)
 
     # GETTING INTEREST DATA
-    interest= df.loc['Interest'] # getting everything that is interest
-    #print(interest)
-    newHeader= interest.iloc[0] # assigning first row as headers (which they are in CSV)
-    interest= interest.iloc[1:] # making DF w/o the first row
-    interest.columns= newHeader # assigning that header to new DF
-    dim= interest.shape # dimensions (rows,cols) which allows for indexing
+    interest, dim= getSection(df, 'Interest') # getting everything that is a trade
 
     # LOOP THROUGH ALL DIVIDENDS TO GET THE DATA
     for i in range(dim[0]):
@@ -156,7 +158,6 @@ if __name__ == "__main__":
 
         if type(date) != type(0.1): # if there is no date, it is not a dividend (I think this is okay but may BREAK)
             amount= float(row['Amount']) # the amount of money deposited
-            print(amount)
             curr= row['Currency'] # the currentcy of dividend payment
             
             intInstance= Transaction('Interest') # initializing the instance for the dividend
@@ -181,7 +182,7 @@ if __name__ == "__main__":
     print()
     print()
     print('checking over trades: ')
-    test= activityLedger['USD.SEK']
+    test= activityLedger['CARR']
     for i in test:
         #print(i)
         print(i[0], i[2].date, i[2].time, i[2].ticker, i[2].dShares, i[2].endShares)
