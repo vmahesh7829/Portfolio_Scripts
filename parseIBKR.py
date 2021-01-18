@@ -38,6 +38,8 @@ class Transaction:
         self.deposit= None
         # withdrawal
         self.withdrawal= None
+        # asset type (stock, forex, etc)
+        self.asset= None
 
 def getSection(df, index):
     # GETTING SPECIFIC SECTION
@@ -84,22 +86,21 @@ def parseIBKR(activityLedger, csvPath):
             tradeInstance.comm= row['Comm/Fee'] # getting the comissions and fees
             tradeInstance.tPrice= row['T. Price'] # getting the transaction price
             tradeInstance.currency= row['Currency'] # getting the currency of the trade
+            tradeInstance.asset= row['Asset Category'] # grabbing the asset cateogy (stock, ...)
 
-            # EXTRA DATA POINTS FOR POSSIBLE FUTURE USE
-            asset= row['Asset Category'] # grabbing the asset cateogy (stock, ...)
 
             if ticker in activityLedger:
 
-                prevTotal= activityLedger[ticker][-1][2].endShares #previous transaction endShares
+                prevTotal= activityLedger[ticker][-1][1].endShares #previous transaction endShares
                 newTotal= prevTotal + quantity # adding traded shares (+/-) to old total to get new total
                 tradeInstance.endShares= newTotal # adding the new total to the instance
 
-                activityLedger[ticker].append((date, asset, tradeInstance)) # adding tuple (date,inst) to list
+                activityLedger[ticker].append((date, tradeInstance)) # adding tuple (date,inst) to list
             
             else: # if first time seeing stock need to initialize list first
                 activityLedger[ticker]=[] # initiallizing a list for a stock (will hold trades)
                 tradeInstance.endShares= quantity # since it's first order, the amount 
-                activityLedger[ticker].append((date, asset, tradeInstance)) # adding tuple (date,inst) to list
+                activityLedger[ticker].append((date, tradeInstance)) # adding tuple (date,inst) to list
 
 
     # GETTING DIVIDEND DATA
@@ -127,7 +128,7 @@ def parseIBKR(activityLedger, csvPath):
             if 'Dividends' not in activityLedger:    
                 activityLedger['Dividends']=[]
 
-            activityLedger['Dividends'].append((date, ticker, divInstance)) # creating a dividend list if it does not exist
+            activityLedger['Dividends'].append((date, divInstance)) # creating a dividend list if it does not exist
 
 
     # GETTING INTEREST DATA
@@ -205,7 +206,7 @@ if __name__ == "__main__":
     test= activityLedger['CARR']
     for i in test:
         #print(i)
-        print(i[0], i[2].date, i[2].time, i[2].ticker, i[2].dShares, i[2].endShares)
+        print(i[0], i[1].date, i[1].time, i[1].ticker, i[1].dShares, i[1].endShares)
 
 
     print()
@@ -214,7 +215,7 @@ if __name__ == "__main__":
     test= activityLedger['Dividends']
     for i in test:
         #print(i)
-        print(i[0],i[2].date, i[2].ticker, i[2].divValue)
+        print(i[0],i[1].date, i[1].ticker, i[1].divValue)
 
 
     print()
