@@ -136,4 +136,4 @@ def tiingoListAllData(stockList,sDate,eDate):
 
     return stockDictOut
 
-print(tiingoListAllData(['AAPL','JPM'],'2016-05-16', '2020-07-30'))
+#print(tiingoListAllData(['AAPL','JPM'],'2016-05-16', '2020-07-30'))
