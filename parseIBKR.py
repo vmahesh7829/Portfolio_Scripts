@@ -34,6 +34,10 @@ class Transaction:
         self.currency= None
         # interest
         self.interest= None
+        # deposit
+        self.deposit= None
+        # withdrawal
+        self.withdrawal= None
 
 def getSection(df, index):
     # GETTING SPECIFIC SECTION
@@ -45,27 +49,11 @@ def getSection(df, index):
     return section, dim
 
 
-def parseIBKR(activityLedger):
+def parseIBKR(activityLedger, csvPath):
 
-    activityLedger= 1
-
-    return activityLedger
-
-
-
-if __name__ == "__main__":
-
-    gcPath2019= '/Users/gianluca/Desktop/ibkrCsv/2019activity.csv'
-    gcPath2020= '/Users/gianluca/Desktop/ibkrCsv/2020activity.csv'
-
-    # initializing the stock ledger
-    activityLedger= {}  # will ultimately be a dictionary of lists of tuples
-
-    # for 2019
     # header=None makes no header, just 0-N
     # index_col=0 makes the first column the index values (e.g. Trades, ...)
-    df= pd.read_csv(gcPath2020, header=None, index_col=0)
-    
+    df= pd.read_csv(csvPath, header=None, index_col=0)
     
     # GETTING TRADE DATA
     trades, dim= getSection(df, 'Trades') # getting everything that is a trade
@@ -116,7 +104,7 @@ if __name__ == "__main__":
 
     # GETTING DIVIDEND DATA
     dividends, dim= getSection(df, 'Dividends') # getting everything that is a trade
-  
+
     # LOOP THROUGH ALL DIVIDENDS TO GET THE DATA
     for i in range(dim[0]):
         
@@ -136,16 +124,11 @@ if __name__ == "__main__":
             divInstance.currency= curr  # currency 
             divInstance.date= date # date of dividend
 
-            if 'Dividends' in activityLedger:
-                
-                activityLedger['Dividends'].append((date, ticker, divInstance)) # adding to divident list
-            
-            else: 
+            if 'Dividends' not in activityLedger:    
                 activityLedger['Dividends']=[]
-                activityLedger['Dividends'].append((date, ticker, divInstance)) # creating a dividend list if it does not exist
 
-    #print('Activity ledger with dividends too')
-    #print(activityLedger)
+            activityLedger['Dividends'].append((date, ticker, divInstance)) # creating a dividend list if it does not exist
+
 
     # GETTING INTEREST DATA
     interest, dim= getSection(df, 'Interest') # getting everything that is a trade
@@ -166,17 +149,54 @@ if __name__ == "__main__":
             intInstance.currency= curr
             intInstance.date= date
 
-            if 'Interest' in activityLedger:
-                
-                activityLedger['Interest'].append((date, intInstance))
-            
-            else: 
+            if 'Interest' not in activityLedger:
                 activityLedger['Interest']=[]
-                activityLedger['Interest'].append((date, intInstance))
+                
+            activityLedger['Interest'].append((date, intInstance))
 
 
-    #print('Activity ledger with interest too')
-    #print(activityLedger)
+    # GETTING DEPOSIT DATA
+    deposits, dim= getSection(df, 'Deposits & Withdrawals')   
+
+    # LOOP THROUGH ALL DEPS/WITHS TO GET THE DATA
+    for i in range(dim[0]):
+
+        row= deposits.iloc[i]
+        date= row['Settle Date']
+
+        if type(date) != type(0.1):
+            amount= float(row['Amount'])
+            curr= row['Currency']
+
+            depInstance= Transaction('Deposit / Withdrawal')
+
+            depInstance.date= date
+            depInstance.currency= curr
+
+            if amount>0:
+                depInstance.deposit= amount
+            else:
+                depInstance.withdrawal= amount
+            
+            if 'Dep/With' not in activityLedger:
+                activityLedger['Dep/With'] = []
+            
+            activityLedger['Dep/With'].append((date, depInstance))
+
+    return activityLedger
+
+
+
+if __name__ == "__main__":
+
+    gcPath2019= '/Users/gianluca/Desktop/ibkrCsv/2019activity.csv'
+    gcPath2020= '/Users/gianluca/Desktop/ibkrCsv/2020activity.csv'
+
+    # initializing the stock ledger
+    activityLedger= {}  # will ultimately be a dictionary of lists of tuples
+
+    activityLedger= parseIBKR(activityLedger, gcPath2019)
+    activityLedger= parseIBKR(activityLedger, gcPath2020)
 
 
     print()
@@ -206,6 +226,15 @@ if __name__ == "__main__":
     for i in test:
         #print(i)
         print(i[0],i[1].date, i[1].interest, i[1].currency)
+
+
+    print()
+    print()
+    print('checking over deposits: ')
+    test= activityLedger['Dep/With']
+    for i in test:
+        #print(i)
+        print(i[0],i[1].date, i[1].deposit, i[1].withdrawal)
 
 
 
