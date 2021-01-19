@@ -26,7 +26,7 @@ def GetStockHashMulti(all_stocks,sDate,eDate):
 
     return tiingoMulti(all_stocks,sDate,eDate)
 
-def tiingoListAllData(all_stocks,sDate,eDate):
+def stockListAllData(all_stocks,sDate,eDate):
 
     if (eDate.year == date.today().year):
         eDate = date.today()
