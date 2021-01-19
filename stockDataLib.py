@@ -24,9 +24,17 @@ def GetStockHashMulti(all_stocks,sDate,eDate):
     sDate = sDate.isoformat()
     eDate = eDate.isoformat()
 
-
-
     return tiingoMulti(all_stocks,sDate,eDate)
+
+def tiingoListAllData(all_stocks,sDate,eDate):
+
+    if (eDate.year == date.today().year):
+        eDate = date.today()
+
+    sDate = sDate.isoformat()
+    eDate = eDate.isoformat()
+
+    return tiingoListAllData(all_stocks,sDate,eDate)
 
 
 
