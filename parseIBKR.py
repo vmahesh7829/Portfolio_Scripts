@@ -3,6 +3,8 @@ __author__ = 'Gianluca'
 import pandas as pd
 import numpy as np
 
+from datetime import date, timedelta
+
 # UNIVERSAL INSTANCE ACROSS ALL TYPES OF SIGNIFICANT EVENTS
 class Transaction:
   
@@ -27,7 +29,7 @@ class Transaction:
         # ticker
         self.ticker= None
         # date
-        self.date= None
+        self.tranDate= None
         # time
         self.time= None
         # currency
@@ -73,15 +75,22 @@ def parseIBKR(activityLedger, csvPath):
             quantity= float(quantity0) # getting the number of shares traded
             dateTime= row['Date/Time'] # getting the date & time of trade: YYYY-MM-DD, HH:MM:SS (military time)
 
-            date= dateTime.split(', ')[0] # separating out the date
+            date0= dateTime.split(', ')[0] # separating out the date
             time= dateTime.split(', ')[1] # separating out the time
+            
+            date1= date0.split('-')
+            yr= int(date1[0])
+            mth= int(date1[1])
+            dy= int(date1[2])
+            
+            tranDate= date(yr,mth,dy) # turing date into a datetime object
 
             # ATTACH ALL THE NECESSARY DATA TO THE INSTANCE 
             tradeInstance= Transaction('Trade') # INITIALIZING THE INSTANCE
 
             tradeInstance.ticker= ticker
             tradeInstance.dShares= quantity
-            tradeInstance.date= date
+            tradeInstance.tranDate= tranDate
             tradeInstance.time= time
             tradeInstance.comm= row['Comm/Fee'] # getting the comissions and fees
             tradeInstance.tPrice= row['T. Price'] # getting the transaction price
@@ -94,12 +103,12 @@ def parseIBKR(activityLedger, csvPath):
                 newTotal= prevTotal + quantity # adding traded shares (+/-) to old total to get new total
                 tradeInstance.endShares= newTotal # adding the new total to the instance
 
-                activityLedger[ticker].append((date, tradeInstance)) # adding tuple (date,inst) to list
+                activityLedger[ticker].append((tranDate, tradeInstance)) # adding tuple (date,inst) to list
             
             else: # if first time seeing stock need to initialize list first
                 activityLedger[ticker]=[] # initiallizing a list for a stock (will hold trades)
                 tradeInstance.endShares= quantity # since it's first order, the amount 
-                activityLedger[ticker].append((date, tradeInstance)) # adding tuple (date,inst) to list
+                activityLedger[ticker].append((tranDate, tradeInstance)) # adding tuple (date,inst) to list
 
 
     # GETTING DIVIDEND DATA
@@ -109,9 +118,9 @@ def parseIBKR(activityLedger, csvPath):
     for i in range(dim[0]):
         
         row=dividends.iloc[i] # isolating a row for analysis (remember, this is now a series w/ header as Index)
-        date= row['Date']
+        tranDate= row['Date']
 
-        if type(date) != type(0.1): # if there is no date, it is not a dividend (I think this is okay but may BREAK)
+        if type(tranDate) != type(0.1): # if there is no date, it is not a dividend (I think this is okay but may BREAK)
             ticker0= row['Description'] # getting the description which includes ticker
             ticker= ticker0.split('(')[0] # the ticker has a bunch of stuff in parenthesis e.g. AAPL(US485848584)
             amount= float(row['Amount']) # the amount of money deposited
@@ -122,12 +131,12 @@ def parseIBKR(activityLedger, csvPath):
             divInstance.ticker= ticker # adding associated ticker
             divInstance.divValue= amount # dividend amount
             divInstance.currency= curr  # currency 
-            divInstance.date= date # date of dividend
+            divInstance.tranDate= tranDate # date of dividend
 
             if 'Dividends' not in activityLedger:    
                 activityLedger['Dividends']=[]
 
-            activityLedger['Dividends'].append((date, divInstance)) # creating a dividend list if it does not exist
+            activityLedger['Dividends'].append((tranDate, divInstance)) # creating a dividend list if it does not exist
 
 
     # GETTING INTEREST DATA
@@ -137,9 +146,9 @@ def parseIBKR(activityLedger, csvPath):
     for i in range(dim[0]):
         
         row=interest.iloc[i] # isolating a row for analysis (remember, this is now a series w/ header as Index)
-        date= row['Date']
+        tranDate= row['Date']
 
-        if type(date) != type(0.1): # if there is no date, it is not a dividend (I think this is okay but may BREAK)
+        if type(tranDate) != type(0.1): # if there is no date, it is not a dividend (I think this is okay but may BREAK)
             amount= float(row['Amount']) # the amount of money deposited
             curr= row['Currency'] # the currentcy of dividend payment
             
@@ -147,12 +156,12 @@ def parseIBKR(activityLedger, csvPath):
             
             intInstance.interest= amount
             intInstance.currency= curr
-            intInstance.date= date
+            intInstance.tranDate= tranDate
 
             if 'Interest' not in activityLedger:
                 activityLedger['Interest']=[]
                 
-            activityLedger['Interest'].append((date, intInstance))
+            activityLedger['Interest'].append((tranDate, intInstance))
 
 
     # GETTING DEPOSIT DATA
@@ -162,15 +171,15 @@ def parseIBKR(activityLedger, csvPath):
     for i in range(dim[0]):
 
         row= deposits.iloc[i]
-        date= row['Settle Date']
+        tranDate= row['Settle Date']
 
-        if type(date) != type(0.1):
+        if type(tranDate) != type(0.1):
             amount= float(row['Amount'])
             curr= row['Currency']
 
             depInstance= Transaction('Deposit / Withdrawal')
 
-            depInstance.date= date
+            depInstance.tranDate= tranDate
             depInstance.currency= curr
 
             if amount>0:
@@ -181,10 +190,9 @@ def parseIBKR(activityLedger, csvPath):
             if 'Dep/With' not in activityLedger:
                 activityLedger['Dep/With'] = []
             
-            activityLedger['Dep/With'].append((date, depInstance))
+            activityLedger['Dep/With'].append((tranDate, depInstance))
 
     return activityLedger
-
 
 def getStockList(activityLedger):
     # this is how we can get a stock list
@@ -194,9 +202,8 @@ def getStockList(activityLedger):
         subTicker= sub[0][1].asset # get the asset attribute contained in the list
         if subTicker == 'Stocks': # if the asset attribute is a stock, we keep the key for stock list
             stockList.append(key) # appending the key of current iteration to the list (since instance reps a "Stocks")
-    return stockList
-
-
+    sDate= activityLedger['Dep/With'][0][0] # Date in tuple of first deposit in account
+    return stockList, sDate
 
 if __name__ == "__main__":
 
@@ -206,11 +213,26 @@ if __name__ == "__main__":
     # initializing the stock ledger
     activityLedger= {}  # will ultimately be a dictionary of lists of tuples
 
+    # updating the stock ledger
     activityLedger= parseIBKR(activityLedger, gcPath2019)
     activityLedger= parseIBKR(activityLedger, gcPath2020)
 
-    stockList= getStockList(activityLedger)
+    # getting a stock list and a start date
+    # Note:
+    #   o need to make all dates datetime instances
+    #   o let's have getStockList also provide eDate to save a line within "main" 
+    stockList, sDate= getStockList(activityLedger)
+
+
+
+
+
     print(stockList)
+    print(sDate)
+
+    # Now we need
+
+
 
 
 
@@ -221,7 +243,7 @@ if __name__ == "__main__":
     test= activityLedger['CARR']
     for i in test:
         #print(i)
-        print(i[0], i[1].date, i[1].time, i[1].ticker, i[1].dShares, i[1].endShares)
+        print(i[0], i[1].tranDate, i[1].time, i[1].ticker, i[1].dShares, i[1].endShares)
 
 
     print()
@@ -230,7 +252,7 @@ if __name__ == "__main__":
     test= activityLedger['Dividends']
     for i in test:
         #print(i)
-        print(i[0],i[1].date, i[1].ticker, i[1].divValue)
+        print(i[0],i[1].tranDate, i[1].ticker, i[1].divValue)
 
 
     print()
@@ -239,7 +261,7 @@ if __name__ == "__main__":
     test= activityLedger['Interest']
     for i in test:
         #print(i)
-        print(i[0],i[1].date, i[1].interest, i[1].currency)
+        print(i[0],i[1].tranDate, i[1].interest, i[1].currency)
 
 
     print()
@@ -248,7 +270,7 @@ if __name__ == "__main__":
     test= activityLedger['Dep/With']
     for i in test:
         #print(i)
-        print(i[0],i[1].date, i[1].deposit, i[1].withdrawal)
+        print(i[0],i[1].tranDate, i[1].deposit, i[1].withdrawal)
 
 
 else:
