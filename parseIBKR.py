@@ -254,7 +254,6 @@ if __name__ == "__main__":
         #print(i)
         print(i[0],i[1].tranDate, i[1].ticker, i[1].divValue)
 
-
     print()
     print()
     print('checking over interest: ')
