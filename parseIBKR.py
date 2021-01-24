@@ -331,7 +331,7 @@ def dailyHoldings(singleList, stockData, baseCurr):
         if idxTracker == 0:
             prevDate= initDate # if first index, prevoius day is initDate
         else:
-            prevDate= fullDateList[idxTracker-1] # getting the previos day in full date list
+            prevDate= fullDateList[idxTracker-1] # getting the previous day in full date list
 
         # initially holdings will be equivalent to prevoius day
         holdings[i]= holdingDeepCopy(holdings[prevDate]) # USE DEEP COPY
