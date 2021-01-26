@@ -279,15 +279,14 @@ def getStockList(singleList):
         transi= i[1]
         asseti= transi.asset
         tickeri= transi.ticker
-        if asseti == 'Stocks':
+        if asseti == 'Stock':
             if tickeri not in stockList:
                 stockList.append(tickeri)
     return stockList
 
 def holdingDeepCopy(prevDayDict):
-
     newDict= {}
-
+    # creating a deep copy
     for ticker in prevDayDict:
         copyInst= Holding()
         copyInst.asset= prevDayDict[ticker].asset
@@ -295,13 +294,11 @@ def holdingDeepCopy(prevDayDict):
         copyInst.units= prevDayDict[ticker].units
         copyInst.currency= prevDayDict[ticker].currency
         copyInst.basis= prevDayDict[ticker].basis
-
         newDict[ticker]=copyInst
-
     return newDict
 
 
-def dailyHoldings(singleList, stockData, baseCurr):
+def dailyHoldings(singleList, stockData, baseCurr, stockList):
     # neet full date list, and a list of transaction dates to match changes
     fullDateList= list(stockData['SPY'].keys())
     tranDateList= [item[0] for item in singleList]
@@ -336,6 +333,28 @@ def dailyHoldings(singleList, stockData, baseCurr):
         # initially holdings will be equivalent to prevoius day
         holdings[i]= holdingDeepCopy(holdings[prevDate]) # USE DEEP COPY
 
+        # if splitfactor is a yes, gonna create a random transaction rn 
+        splitTracker= checkSplit(stockData, stockList, day=i)
+        
+        # if any splits on this day, we need to create 0 proceed transactions
+        if len(splitTracker) != 0:
+            for split in splitTracker:
+                stock= split[0]
+                factor= split[1]
+
+                splitTransaction= Transaction('Split')
+                splitTransaction.ticker= stock
+                splitTransaction.dShares= float(factor)
+                splitTransaction.comm= 0
+                splitTransaction.proceeds= 0
+                splitTransaction.currency= 'USD'
+
+                # need to insert these things into singleList and tranDateList
+                splitIdx= bisect.bisect_left(tranDateList, i)
+                tranDateList.insert(splitIdx, i)
+                singleList.insert(splitIdx, (i, splitTransaction))
+
+
         if i in tranDateList: # if that date corresponds with a transaction date we need to modify
             tranIdx= bisect.bisect_left(tranDateList,i) # getting placement in the transaction list
             
@@ -354,14 +373,22 @@ def dailyHoldings(singleList, stockData, baseCurr):
                 currTick= 'CURR.'+tranCurr
                 holdings[i][currTick].units += tranProceeds
 
-                if tranType == 'Trade':
+                if tranType == 'Trade' or tranType =='Split':
 
                     holdings[i][currTick].units += tranComm
 
-                    if tranTicker in holdings[i]: # I believe issue is here
-                        holdings[i][tranTicker].units += newShares # or the issue is here
-                        holdings[i][tranTicker].basis= 'fuckyou'
-
+                    if tranTicker in holdings[i]: 
+                        
+                        # trades get handled normally
+                        if tranType == 'Trade':
+                            holdings[i][tranTicker].units += newShares # or the issue is here
+                            holdings[i][tranTicker].basis= 'fuckyou'
+                        
+                        # if it's a split same thing but it's multiplication
+                        if tranType == 'Split':
+                            holdings[i][tranTicker].units *= newShares # or the issue is here
+                            holdings[i][tranTicker].basis= 'fuckyou'
+                        
                     else:
                         holdings[i][tranTicker]= Holding()
                         holdings[i][tranTicker].asset= tranAsset
@@ -377,54 +404,22 @@ def dailyHoldings(singleList, stockData, baseCurr):
 
     return holdings
 
-# this will go away, and be incorparated into daily holdings
-def splitFix(activityLedger, stockList, stockData):
-    # this function is now useless
+def checkSplit(stockData, stockList, day):
+    splitTracker= []
     for stock in stockList:
         tickerData= stockData[stock]
-        for day in tickerData:
+        try:
             splitF= tickerData[day]['splitFactor']
             if splitF != 1.0:
                 print()
-                print('SPLIT ALERT!!!  ', stock, day, splitF)
-                print(type(day))
-                # I KNOW THAT IT WORKS TO HERE! LOL
-                # if it's not 1, we need to add those shares so .....
-                affectedAsset= activityLedger[stock]
-                # need to find the day, or create a day
-                # first list of dates in tuples
-                dateList= []
-                for tple in affectedAsset:
-                    dateList.append(tple[0])
-                
-                numTransactions= len(dateList)
-                indx= bisect.bisect(dateList, day)-1
-                currentShares= affectedAsset[indx][1].endShares
-                newEndShares= currentShares * splitF
-                newShares= newEndShares - currentShares
+                print('SPLIT ALERT!!!!  ', stock, day, splitF)
+                splitTracker.append([stock, splitF])
+        except:
+            print(stock, ': FAILED checkSplit()')
+            pass
 
-                if day in dateList:    
-                    affectedAsset[indx][1].endShares= newEndShares
-                    remainder=indx+1
+    return splitTracker
 
-                else:
-                    numTransactions+=1
-                                        
-                    splitInstance= Transaction('Split')
-                    splitInstance.splitFactor= splitF
-                    splitInstance.dShares= newShares
-                    splitInstance.endShares= newEndShares
-                
-                    addition=(day, splitInstance)
-
-                    affectedAsset.insert(indx+1,addition)
-                    remainder= indx+2 # +2 b/c we added transaction
-
-                for i in range(remainder,numTransactions): # +2 b/c we added one
-                    currentShares= affectedAsset[i][1].endShares
-                    affectedAsset[i][1].endShares = currentShares + newShares
-                    
-    return activityLedger
 
 
 if __name__ == "__main__":
@@ -450,7 +445,7 @@ if __name__ == "__main__":
         #print(inst.ticker, inst.dShares)
 
     # getting stock list 
-    stockList= getStockList(singleList)
+    stockList= getStockList(singleList) # this no longer works
 
     # start date = the first deposit
     sDate= singleList[0][1].tranDate
@@ -459,13 +454,13 @@ if __name__ == "__main__":
     # tiingo API pull has to include benchmark
     benchmark= 'SPY'
     tiingoList= stockList + [benchmark]
-    tiingoList= ['SPY','TSLA']
+    #tiingoList= ['SPY','TSLA']
 
     # Now we need to do the API thing
     stockData = tiingoListAllData(tiingoList, sDate, eDate)
 
     # get dictionary of daily holdings, TWR, NPV (in basCurr)
-    holdings= dailyHoldings(singleList, stockData, baseCurr='USD')
+    holdings= dailyHoldings(singleList, stockData, 'USD', stockList)
 
     # Time to debug this ...
     friday= date(2021,1,22)
