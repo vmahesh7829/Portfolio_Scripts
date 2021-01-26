@@ -316,7 +316,9 @@ def dailyHoldings(singleList, stockData, baseCurr, stockList):
     initInst.basis= 0 # this will never be used since currencies don't have capital gains (i think?)
 
     # initializing our portfolio (day before deposit)
-    holdings= {initDate: {baseCurr: initInst}}  
+    holdings= {initDate: {baseCurr: initInst}}
+    navList=[]
+    depList=[0]*len(fullDateList)  
 
     # total number of transactions (integer)
     tranLen= len(tranDateList)
@@ -373,12 +375,13 @@ def dailyHoldings(singleList, stockData, baseCurr, stockList):
                 currTick= 'CURR.'+tranCurr
                 holdings[i][currTick].units += tranProceeds
 
-                if tranType == 'Trade' or tranType =='Split':
+                if tranType == 'Deposit / Withdrawal':
+                    depList[idxTracker]+= tranProceeds
 
+                if tranType == 'Trade' or tranType =='Split':
                     holdings[i][currTick].units += tranComm
 
                     if tranTicker in holdings[i]: 
-                        
                         # trades get handled normally
                         if tranType == 'Trade':
                             holdings[i][tranTicker].units += newShares # or the issue is here
@@ -402,7 +405,27 @@ def dailyHoldings(singleList, stockData, baseCurr, stockList):
                     break # if adding +1 makes longer than actual list, we're done
 
 
-    return holdings
+        #itializing day's NAV
+        nav=0
+        for item in holdings[i]:
+            itemShares= holdings[i][item].units
+            if item[:5] != 'CURR.' and item != 'NLAB':
+                itemClose= stockData[item][i]['close']
+                nav+= itemClose * itemShares
+
+            if item == 'CURR.USD':
+                nav+= 1 * itemShares
+
+            if item == 'CURR.SEK':
+                nav+= 0.12 * itemShares
+
+            if item == 'NLAB':
+                nav+= 0.12 * 44 * itemShares
+        
+        navList.append(nav)
+
+
+    return holdings, navList, depList
 
 def checkSplit(stockData, stockList, day):
     splitTracker= []
@@ -440,10 +463,6 @@ if __name__ == "__main__":
     # sorting the list of tuples
     singleList.sort(key= lambda x: x[0]) 
 
-    for i in singleList:
-        inst= i[1]
-        #print(inst.ticker, inst.dShares)
-
     # getting stock list 
     stockList= getStockList(singleList) # this no longer works
 
@@ -460,15 +479,32 @@ if __name__ == "__main__":
     stockData = tiingoListAllData(tiingoList, sDate, eDate)
 
     # get dictionary of daily holdings, TWR, NPV (in basCurr)
-    holdings= dailyHoldings(singleList, stockData, 'USD', stockList)
+    holdings, navList, depList= dailyHoldings(singleList, stockData, 'USD', stockList)
 
-    # Time to debug this ...
-    friday= date(2021,1,22)
-    fridayHoldings= holdings[friday]
-    for _ in fridayHoldings:
-        pos= fridayHoldings[_]
+
+    # DOING SOME TESTS
+
+    # Time to debug this ...    
+    monday= date(2021,1,25)
+    mondayHoldings= holdings[monday]
+    for _ in mondayHoldings:
+        pos= mondayHoldings[_]
         print(pos.ticker,': ',pos.units)
 
+
+    rets=[]
+    for i in range(1,len(navList)):
+        ret= 100*(((navList[i]-depList[i])/navList[i-1])-1)
+        rets.append(round(ret,2))
+
+    logRet=[0]*len(rets)
+    logRet[0]= rets[0]
+    for i in range(1,len(rets)):
+        logRet[i]=rets[i]+logRet[i-1] 
+
+    import matplotlib.pyplot as plt
+    plt.plot(logRet)
+    plt.show()
 
 
 
