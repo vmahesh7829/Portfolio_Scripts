@@ -53,6 +53,9 @@ class Transaction:
 
 def getSection(df, index):
     # GETTING SPECIFIC SECTION
+
+    
+
     section= df.loc[index] # getting everything that is a trade
     newHeader= section.iloc[0] # assigning first row as headers (which they are in CSV)
     section= section.iloc[1:] # making DF w/o the first row
@@ -247,8 +250,9 @@ def mergeKSortedLists(lists: list, actLedger: dict):
   while (len(h) > 0):
     date,instance,i = heapq.heappop(h)
     # append next item to output
-    print(date)
     sortedList.append((date,instance))
+    print(instance.date,instance.transType,instance.ticker,instance.dShares,
+    instance.tPrice,instance.endShares)
 
     # push next object from list that was popped(unless list is over)
     # increment i to the next element in the list that holds instance
@@ -265,7 +269,7 @@ if __name__ == "__main__":
 
     # later this should potentially be stored as an environment variable
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    dir_path += "/IBKR2019.csv"
+    dir_path += "/IBKR2020.csv"
     # if a file before 2000 is entered, this has to be changed to 1900
     # if this is not done y2k bug will happen
     yearInc = 2000
@@ -301,7 +305,7 @@ if __name__ == "__main__":
     # merged the lists in activity ledger into one sorted list
 
     #Todo:
-        # push to Vishy branch
+        # add try catch to this file
         # start NAV calculation in new branch
         # call the tiingo API (check for splits)
         # calculate NAV (and update for splits)
