@@ -53,14 +53,17 @@ class Transaction:
 
 def getSection(df, index):
     # GETTING SPECIFIC SECTION
+    try:
+        section= df.loc[index] # getting everything that is a trade
+        newHeader= section.iloc[0] # assigning first row as headers (which they are in CSV)
+        section= section.iloc[1:] # making DF w/o the first row
+        section.columns= newHeader # assigning that header to new DF
+        dim= section.shape # dimensions (rows,cols) which allows for indexing
+        return section, dim
 
-    
-
-    section= df.loc[index] # getting everything that is a trade
-    newHeader= section.iloc[0] # assigning first row as headers (which they are in CSV)
-    section= section.iloc[1:] # making DF w/o the first row
-    section.columns= newHeader # assigning that header to new DF
-    dim= section.shape # dimensions (rows,cols) which allows for indexing
+    # if index is not in the dataFrame, return False,False
+    except KeyError as e:
+        return (False,False)
     return section, dim
 
 
@@ -73,148 +76,158 @@ def parseIBKR(activityLedger, csvPath):
     # GETTING TRADE DATA
     trades, dim= getSection(df, 'Trades') # getting everything that is a trade
 
-    # LOOP THROUGH ALL TRADES TO GET THE DATA
-    for i in range(dim[0]):
+    # don't run if get Section does not find the 'Trades column'
+    if (type(trades) != bool and type(dim) != bool):
 
-        row= trades.iloc[i] # isolating a row for analysis
-        order= row['DataDiscriminator'] # !!! WHEN YOU ILOC A ROW, HEADER OF DATAGRAME BECOMES INDEX !!!!!
+        # LOOP THROUGH ALL TRADES TO GET THE DATA
+        for i in range(dim[0]):
 
-        if order == 'Order': # if it's an order we'll continue
+            row= trades.iloc[i] # isolating a row for analysis
+            order= row['DataDiscriminator'] # !!! WHEN YOU ILOC A ROW, HEADER OF DATAGRAME BECOMES INDEX !!!!!
 
-            ticker= row['Symbol'] # getting the ticker
-            quantity0= row['Quantity'].replace(',','') # want to remove and commas if CSV adds them for thousands
-            quantity= float(quantity0) # getting the number of shares traded
-            dateTime= row['Date/Time'] # getting the date & time of trade: YYYY-MM-DD, HH:MM:SS (military time)
+            if order == 'Order': # if it's an order we'll continue
 
-            date= dateTime.split(', ')[0] # separating out the date
-            time= dateTime.split(', ')[1] # separating out the time
+                ticker= row['Symbol'] # getting the ticker
+                quantity0= row['Quantity'].replace(',','') # want to remove and commas if CSV adds them for thousands
+                quantity= float(quantity0) # getting the number of shares traded
+                dateTime= row['Date/Time'] # getting the date & time of trade: YYYY-MM-DD, HH:MM:SS (military time)
 
-            # Turning date into a datetime object for comparator
-            date = date.split('-')
-            date = datetime.datetime( int(date[0]) , int(date[1]), int(date[2]))
+                date= dateTime.split(', ')[0] # separating out the date
+                time= dateTime.split(', ')[1] # separating out the time
 
-            # ATTACH ALL THE NECESSARY DATA TO THE INSTANCE
-            tradeInstance= Transaction('Trade') # INITIALIZING THE INSTANCE
+                # Turning date into a datetime object for comparator
+                date = date.split('-')
+                date = datetime.datetime( int(date[0]) , int(date[1]), int(date[2]))
 
-            tradeInstance.ticker= ticker
-            # store the key where instance is held in dict
-            tradeInstance.ledgerKey = ticker
-            tradeInstance.dShares= quantity
-            tradeInstance.date= date
-            tradeInstance.time= time
-            tradeInstance.comm= row['Comm/Fee'] # getting the comissions and fees
-            tradeInstance.tPrice= row['T. Price'] # getting the transaction price
-            tradeInstance.currency= row['Currency'] # getting the currency of the trade
-            tradeInstance.asset= row['Asset Category'] # grabbing the asset cateogy (stock, ...)
-            tradeInstance.dCash = row['Basis'] # storing net cash movement of each transaction
+                # ATTACH ALL THE NECESSARY DATA TO THE INSTANCE
+                tradeInstance= Transaction('Trade') # INITIALIZING THE INSTANCE
 
-            if ticker in activityLedger:
+                tradeInstance.ticker= ticker
+                # store the key where instance is held in dict
+                tradeInstance.ledgerKey = ticker
+                tradeInstance.dShares= quantity
+                tradeInstance.date= date
+                tradeInstance.time= time
+                tradeInstance.comm= row['Comm/Fee'] # getting the comissions and fees
+                tradeInstance.tPrice= row['T. Price'] # getting the transaction price
+                tradeInstance.currency= row['Currency'] # getting the currency of the trade
+                tradeInstance.asset= row['Asset Category'] # grabbing the asset cateogy (stock, ...)
+                tradeInstance.dCash = row['Basis'] # storing net cash movement of each transaction
 
-                prevTotal= activityLedger[ticker][-1][1].endShares #previous transaction endShares
-                newTotal= prevTotal + quantity # adding traded shares (+/-) to old total to get new total
-                tradeInstance.endShares= newTotal # adding the new total to the instance
+                if ticker in activityLedger:
 
-                activityLedger[ticker].append((date, tradeInstance)) # adding tuple (date,inst) to list
+                    prevTotal= activityLedger[ticker][-1][1].endShares #previous transaction endShares
+                    newTotal= prevTotal + quantity # adding traded shares (+/-) to old total to get new total
+                    tradeInstance.endShares= newTotal # adding the new total to the instance
 
-            else: # if first time seeing stock need to initialize list first
-                activityLedger[ticker]=[] # initiallizing a list for a stock (will hold trades)
-                tradeInstance.endShares= quantity # since it's first order, the amount
-                activityLedger[ticker].append((date, tradeInstance)) # adding tuple (date,inst) to list
+                    activityLedger[ticker].append((date, tradeInstance)) # adding tuple (date,inst) to list
+
+                else: # if first time seeing stock need to initialize list first
+                    activityLedger[ticker]=[] # initiallizing a list for a stock (will hold trades)
+                    tradeInstance.endShares= quantity # since it's first order, the amount
+                    activityLedger[ticker].append((date, tradeInstance)) # adding tuple (date,inst) to list
 
 
 
     # GETTING DIVIDEND DATA
     dividends, dim= getSection(df, 'Dividends') # getting everything that is a trade
 
-    # LOOP THROUGH ALL DIVIDENDS TO GET THE DATA
-    for i in range(dim[0]):
+    # only run if there is dividend data
+    if (type(dividends) != bool and type(dim) != bool):
 
-        row=dividends.iloc[i] # isolating a row for analysis (remember, this is now a series w/ header as Index)
-        date= row['Date']
+        # LOOP THROUGH ALL DIVIDENDS TO GET THE DATA
+        for i in range(dim[0]):
 
-        if type(date) == str: # if there is no date, it is not a dividend (I think this is okay but may BREAK)
-            ticker0= row['Description'] # getting the description which includes ticker
-            ticker= ticker0.split('(')[0] # the ticker has a bunch of stuff in parenthesis e.g. AAPL(US485848584)
-            amount= float(row['Amount']) # the amount of money deposited
-            curr= row['Currency'] # the currentcy of dividend payment
+            row=dividends.iloc[i] # isolating a row for analysis (remember, this is now a series w/ header as Index)
+            date= row['Date']
 
-            divInstance= Transaction('Dividend') # initializing the instance for the dividend
-            date = date.split('/')
-            date = datetime.datetime( int(date[2])+yearInc , int(date[0]), int(date[1]))
+            if type(date) == str: # if there is no date, it is not a dividend (I think this is okay but may BREAK)
+                ticker0= row['Description'] # getting the description which includes ticker
+                ticker= ticker0.split('(')[0] # the ticker has a bunch of stuff in parenthesis e.g. AAPL(US485848584)
+                amount= float(row['Amount']) # the amount of money deposited
+                curr= row['Currency'] # the currentcy of dividend payment
 
-            divInstance.ticker= ticker # adding associated ticker
-            divInstance.ledgerKey = 'Dividends'
-            divInstance.dCash= amount # dividend amount
-            divInstance.currency= curr  # currency
-            divInstance.date= date # date of dividend
+                divInstance= Transaction('Dividend') # initializing the instance for the dividend
+                date = date.split('/')
+                date = datetime.datetime( int(date[2])+yearInc , int(date[0]), int(date[1]))
 
-            if 'Dividends' not in activityLedger:
-                activityLedger['Dividends']=[]
+                divInstance.ticker= ticker # adding associated ticker
+                divInstance.ledgerKey = 'Dividends'
+                divInstance.dCash= amount # dividend amount
+                divInstance.currency= curr  # currency
+                divInstance.date= date # date of dividend
 
-            activityLedger['Dividends'].append((date, divInstance)) # creating a dividend list if it does not exist
+                if 'Dividends' not in activityLedger:
+                    activityLedger['Dividends']=[]
+
+                activityLedger['Dividends'].append((date, divInstance)) # creating a dividend list if it does not exist
 
 
     # GETTING INTEREST DATA
     interest, dim= getSection(df, 'Interest') # getting everything that is a trade
 
     # LOOP THROUGH ALL DIVIDENDS TO GET THE DATA
-    for i in range(dim[0]):
+    if (type(interest) != bool and type(dim) != bool):
+        for i in range(dim[0]):
 
-        row=interest.iloc[i] # isolating a row for analysis (remember, this is now a series w/ header as Index)
-        date= row['Date']
+            row=interest.iloc[i] # isolating a row for analysis (remember, this is now a series w/ header as Index)
+            date= row['Date']
 
 
 
-        if type(date) == str: # if there is no date, it is not a dividend (I think this is okay but may BREAK)
-            amount= float(row['Amount']) # the amount of money deposited
-            curr= row['Currency'] # the currentcy of dividend payment
+            if type(date) == str: # if there is no date, it is not a dividend (I think this is okay but may BREAK)
+                amount= float(row['Amount']) # the amount of money deposited
+                curr= row['Currency'] # the currentcy of dividend payment
 
-            intInstance= Transaction('Interest') # initializing the instance for the dividend
+                intInstance= Transaction('Interest') # initializing the instance for the dividend
 
-            date = date.split('/')
-            date = datetime.datetime( int(date[2])+yearInc , int(date[0]), int(date[1]))
+                date = date.split('/')
+                date = datetime.datetime( int(date[2])+yearInc , int(date[0]), int(date[1]))
 
-            intInstance.dCash= amount
-            intInstance.ledgerKey = 'Interest'
-            intInstance.currency= curr
-            intInstance.date= date
+                intInstance.dCash= amount
+                intInstance.ledgerKey = 'Interest'
+                intInstance.currency= curr
+                intInstance.date= date
 
-            if 'Interest' not in activityLedger:
-                activityLedger['Interest']=[]
+                if 'Interest' not in activityLedger:
+                    activityLedger['Interest']=[]
 
-            activityLedger['Interest'].append((date, intInstance))
+                activityLedger['Interest'].append((date, intInstance))
 
 
     # GETTING DEPOSIT DATA
     deposits, dim= getSection(df, 'Deposits & Withdrawals')
 
     # LOOP THROUGH ALL DEPS/WITHS TO GET THE DATA
-    for i in range(dim[0]):
+    # Only run if there is deposit data
+    if (type(deposits) != bool and type(dim) != bool):
 
-        row= deposits.iloc[i]
-        date= row['Settle Date']
+        for i in range(dim[0]):
+
+            row= deposits.iloc[i]
+            date= row['Settle Date']
 
 
-        if type(date) == str:
-            amount= float(row['Amount'])
-            curr= row['Currency']
+            if type(date) == str:
+                amount= float(row['Amount'])
+                curr= row['Currency']
 
-            depInstance= Transaction('Deposit / Withdrawal')
+                depInstance= Transaction('Deposit / Withdrawal')
 
-            date = date.split('/')
-            date = datetime.datetime( int(date[2])+yearInc , int(date[0]), int(date[1]))
+                date = date.split('/')
+                date = datetime.datetime( int(date[2])+yearInc , int(date[0]), int(date[1]))
 
-            depInstance.date= date
-            depInstance.ledgerKey = 'Dep/With'
-            depInstance.currency= curr
-            depInstance.dCash = amount
+                depInstance.date= date
+                depInstance.ledgerKey = 'Dep/With'
+                depInstance.currency= curr
+                depInstance.dCash = amount
 
-            if 'Dep/With' not in activityLedger:
-                activityLedger['Dep/With'] = []
+                if 'Dep/With' not in activityLedger:
+                    activityLedger['Dep/With'] = []
 
-            activityLedger['Dep/With'].append((date, depInstance))
+                activityLedger['Dep/With'].append((date, depInstance))
 
-    return activityLedger
+        return activityLedger
 
 
 def getStockList(activityLedger):
@@ -269,7 +282,7 @@ if __name__ == "__main__":
 
     # later this should potentially be stored as an environment variable
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    dir_path += "/IBKR2020.csv"
+    dir_path += "/IBKR2019.csv"
     # if a file before 2000 is entered, this has to be changed to 1900
     # if this is not done y2k bug will happen
     yearInc = 2000
@@ -313,6 +326,7 @@ if __name__ == "__main__":
     #TODO Later:
         # change API to only ask for dates that are used (perhaps write library)
         # add time of trade to datetimeobj (should be in tradeInstance.time)
+        # not sure if the Data Discriminator df.iloc should have a trycatch
 
 
 
