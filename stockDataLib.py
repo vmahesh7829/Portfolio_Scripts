@@ -2,13 +2,8 @@ __author__ = 'gianluca and vish'
 
 # TODO:
 
-# check tiingo call (probably have to use eDate.date() in api_pulls)
-# match foreign keys to tiingo keys
 
 from api_pulls import *
-from parseIBKR import printActivityLedger
-from yfinancetest import *
-import time
 
 def GetStockHashMulti(all_stocks,sDate,eDate):
 

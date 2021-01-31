@@ -1,23 +1,54 @@
-import requests
 import datetime
-import pymongo
-
-import logging
+import pandas as pd
 import threading
-import time
-
 from tiingo import TiingoClient
+import yfinance as yf
 
-import cProfile
-import re
+def yfDfToDict(stockDf):
+    out = dict()
 
-# TODO: Locally store a dateList and return the correct range
-#       Make the Number of fields in the dict an optarg
+    for ind in stockDf.index:
+
+        # create a dict with days info EOD info
+        # make sure to match the keys of this to tiingo
+        inDict = dict()
+        inDict['close'] = stockDf['Close'][ind]
+        inDict['divCash'] = stockDf['Dividends'][ind]
+        inDict['splitFactor'] = stockDf['Stock Splits'][ind]
+
+        # convert ind from pandasTimestamp to datetime.dateTime
+        ind = str(ind.date())
+        ind = ind.split('-')
+        ind = datetime.datetime( int(ind[0]) , int(ind[1]), int(ind[2]))
+
+        # add that day to the output
+        out[ind] = inDict
+
+    return out
+
+# later this should take sDate and eDate
+def getPricesOfThreeForeignStocks(sDate,eDate):
+    out = dict()
+    # yfinance takes dates as an iso string
+    sDate = sDate.date().isoformat()
+    eDate = eDate.date().isoformat()
+
+    # foreign tickers in Yahoo Finance format
+    tickList = ["NLAB.ST","AIR.PA","APT.AX"]
+    for ticker in tickList:
+        newStock = yf.Ticker(ticker)
+        newStock = newStock.history(start=sDate, end=eDate)
+        newStock = yfDfToDict(newStock)
+        out[ticker] = newStock
+
+    return out
+
 
 
 # USAGE:
 # stockList is a list of tickers
-# sDate and eDate are iso format strings
+# sDate and eDate are iso format strings for tiingoMulti
+# for tiingoListAllData they are datetime.datetime objects
 # this outputs a dictionary with ticker as a key
 # value is a dictionary with key date val price
 
