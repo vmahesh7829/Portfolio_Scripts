@@ -31,8 +31,6 @@ class Transaction:
         self.comm = None
         # borrowInterest
         self.borrowCost = None
-        # store the key as well for future searchability (if we put dividend no need for this)
-        self.ledgerKey = None
 
     def __eq__(self, other):
         return self.date == other.date
@@ -108,18 +106,16 @@ def parseIBKR(activityLedger, csvPath):
 
                 if ticker in activityLedger:
 
-                    prevTotal= activityLedger[ticker][-1][1].endShares #previous transaction endShares
+                    prevTotal= activityLedger[ticker][-1].endShares #previous transaction endShares
                     newTotal= prevTotal + quantity # adding traded shares (+/-) to old total to get new total
                     tradeInstance.endShares= newTotal # adding the new total to the instance
 
-                    activityLedger[ticker].append((date, tradeInstance)) # adding tuple (date,inst) to list
+                    activityLedger[ticker].append(tradeInstance) # adding tuple (date,inst) to list
 
                 else: # if first time seeing stock need to initialize list first
                     activityLedger[ticker]=[] # initiallizing a list for a stock (will hold trades)
                     tradeInstance.endShares= quantity # since it's first order, the amount
-                    activityLedger[ticker].append((date, tradeInstance)) # adding tuple (date,inst) to list
-
-
+                    activityLedger[ticker].append(tradeInstance) # adding tuple (date,inst) to list
 
     # GETTING DIVIDEND DATA
     dividends, dim= getSection(df, 'Dividends') # getting everything that is a trade
@@ -144,15 +140,11 @@ def parseIBKR(activityLedger, csvPath):
                 date = datetime.datetime( int(date[2])+yearInc , int(date[0]), int(date[1]))
 
                 divInstance.ticker= ticker # adding associated ticker
-                divInstance.ledgerKey = 'Dividends'
                 divInstance.dCash= amount # dividend amount
                 divInstance.currency= curr  # currency
                 divInstance.date= date # date of dividend
 
-                if 'Dividends' not in activityLedger:
-                    activityLedger['Dividends']=[]
-
-                activityLedger['Dividends'].append((date, divInstance)) # creating a dividend list if it does not exist
+                activityLedger[ticker].append(tradeInstance) # creating a dividend list if it does not exist
 
 
     # GETTING INTEREST DATA
@@ -177,14 +169,14 @@ def parseIBKR(activityLedger, csvPath):
                 date = datetime.datetime( int(date[2])+yearInc , int(date[0]), int(date[1]))
 
                 intInstance.dCash= amount
-                intInstance.ledgerKey = 'Interest'
+                intInstance.ticker = 'Interest'
                 intInstance.currency= curr
                 intInstance.date= date
 
                 if 'Interest' not in activityLedger:
                     activityLedger['Interest']=[]
 
-                activityLedger['Interest'].append((date, intInstance))
+                activityLedger['Interest'].append(intInstance)
 
 
     # GETTING DEPOSIT DATA
@@ -210,14 +202,14 @@ def parseIBKR(activityLedger, csvPath):
                 date = datetime.datetime( int(date[2])+yearInc , int(date[0]), int(date[1]))
 
                 depInstance.date= date
-                depInstance.ledgerKey = 'Dep/With'
+                depInstance.ticker = 'Dep/With'
                 depInstance.currency= curr
                 depInstance.dCash = amount
 
                 if 'Dep/With' not in activityLedger:
                     activityLedger['Dep/With'] = []
 
-                activityLedger['Dep/With'].append((date, depInstance))
+                activityLedger['Dep/With'].append(depInstance)
 
         return activityLedger
 
@@ -246,30 +238,6 @@ def printActivityLedger(activityLedger):
 # this could have been done just with actLedger. In the heap, we could have
 # put in transactions and used the object comparator to sort
 
-def mergeKSortedLists(lists: list, actLedger: dict):
-
-  h = []
-  sortedList = []
-
-  # push 1 val for every item in list
-  for transType in lists:
-    heapq.heappush(h, (transType[0][0],transType[0][1],0) )
-
-  while (len(h) > 0):
-    date,instance,i = heapq.heappop(h)
-    # append next item to output
-    sortedList.append((date,instance))
-    # print(instance.date,instance.transType,instance.ticker,instance.dShares,
-    # instance.tPrice,instance.endShares)
-
-    # push next object from list that was popped(unless list is over)
-    # increment i to the next element in the list that holds instance
-    i +=1
-    instList = actLedger[instance.ledgerKey]
-    if (i < len(instList)):
-      heapq.heappush(h, (instList[i][0],instList[i][1],i) )
-
-  return sortedList
 
 
 
@@ -287,7 +255,7 @@ else:
     # added a comparator function to Transaction instance
     # (do not use its for the heapq function)
 
-    # added a field ledgerKey to find a particular instance inside activity ledger
-    # or rather the list inside it
+    # putting dividends with other stock trades of same ticker
+    # made transaction.ticker = 'Dep/With' for deposit and withdrawal
 
     # merged the lists in activity ledger into one sorted List
