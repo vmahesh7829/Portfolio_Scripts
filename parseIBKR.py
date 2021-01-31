@@ -22,8 +22,6 @@ class Transaction:
         self.tPrice = None
         # commission
         self.comm = None
-        # dividend
-        self.divValue = None
         # borrowInterest
         self.borrowCost = None
         # splitFactor
@@ -68,6 +66,9 @@ def getSection(df, index):
 
 
 def parseIBKR(activityLedger, csvPath):
+
+    # adjusting 2 digit year to 4 digit year
+    yearInc = 2000
 
     # header=None makes no header, just 0-N
     # index_col=0 makes the first column the index values (e.g. Trades, ...)
@@ -246,11 +247,14 @@ def printActivityLedger(activityLedger):
         for entry in activityLedger[key]:
             trade = entry[1]
             print(trade.date,trade.transType,trade.ticker,trade.dShares,
-            trade.tPrice,trade.endShares)
+            trade.tPrice,trade.endShares,trade.currency)
 
         print()
 
 # takes in a list of sorted lists and returns a merged list will all elements
+# this could have been done just with actLedger. In the heap, all we'd need is
+# date,key,i
+
 def mergeKSortedLists(lists: list, actLedger: dict):
 
   h = []
@@ -264,8 +268,8 @@ def mergeKSortedLists(lists: list, actLedger: dict):
     date,instance,i = heapq.heappop(h)
     # append next item to output
     sortedList.append((date,instance))
-    print(instance.date,instance.transType,instance.ticker,instance.dShares,
-    instance.tPrice,instance.endShares)
+    # print(instance.date,instance.transType,instance.ticker,instance.dShares,
+    # instance.tPrice,instance.endShares)
 
     # push next object from list that was popped(unless list is over)
     # increment i to the next element in the list that holds instance
@@ -279,35 +283,15 @@ def mergeKSortedLists(lists: list, actLedger: dict):
 
 
 if __name__ == "__main__":
-
-    # later this should potentially be stored as an environment variable
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    dir_path += "/IBKR2019.csv"
-    # if a file before 2000 is entered, this has to be changed to 1900
-    # if this is not done y2k bug will happen
-    yearInc = 2000
-
-    # initializing the stock ledger
-    activityLedger= {}  # will ultimately be a dictionary of lists of tuples
-    activityLedger= parseIBKR(activityLedger, dir_path)
-
-    stockList= getStockList(activityLedger)
-
-    # this is a list of all the lists in activityLedger
-    kLists = activityLedger.values()
-
-    # merge them
-    sortedTransList = mergeKSortedLists(kLists,activityLedger)
+    # add Apple to stockList
+    pass
+else:
+    print('Import: {}'.format(__file__))
 
 
     # push notes:
 
-    # be careful if we every put a 1999 file in here
-
-    # df.iLoc is throwing errors when a certain section isn't in the csv
-    # solution is to search the csv, then only run if the section is present
-
-    # made a print activity ledger function to print it out
+    # be careful if we ever put a 1999 file in
 
     # added a comparator function to Transaction instance
     # (do not use its for the heapq function)
@@ -315,22 +299,8 @@ if __name__ == "__main__":
     # added a field ledgerKey to find a particular instance inside activity ledger
     # or rather the list inside it
 
-    # merged the lists in activity ledger into one sorted list
-
-    #Todo:
-        # add try catch to this file
-        # start NAV calculation in new branch
-        # call the tiingo API (check for splits)
-        # calculate NAV (and update for splits)
+    # merged the lists in activity ledger into one sorted List
 
     #TODO Later:
         # change API to only ask for dates that are used (perhaps write library)
         # add time of trade to datetimeobj (should be in tradeInstance.time)
-        # not sure if the Data Discriminator df.iloc should have a trycatch
-
-
-
-
-
-else:
-    print('Import: {}'.format(__file__))

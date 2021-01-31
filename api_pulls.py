@@ -1,6 +1,5 @@
 import requests
 import datetime
-from datetime import date
 import pymongo
 
 import logging
@@ -11,6 +10,9 @@ from tiingo import TiingoClient
 
 import cProfile
 import re
+
+# TODO: Locally store a dateList and return the correct range
+#       Make the Number of fields in the dict an optarg
 
 
 # USAGE:
@@ -44,6 +46,7 @@ def tiingoMulti(stockList,sDate,eDate):
 
         nonlocal stockDictOut
         stockDictOut[stock] = closeDict
+
         print("Call %s: finished", name)
 
     config = {}
@@ -92,36 +95,32 @@ def tiingoListAllData(stockList,sDate,eDate):
 
         closeDict = {}
         for currDay in historical_prices:
-
             in_date = currDay['date']
-
             # set date key to be a date object
-            in_date = date(int(in_date[0:4]),int(in_date[5:7]),int(in_date[8:10]))
+            in_date = datetime.datetime(int(in_date[0:4]),int(in_date[5:7]),int(in_date[8:10]))
             closeDict[in_date] = currDay
 
+        # add the dictionary for this ticker to the dictionary of tickers
         nonlocal stockDictOut
         stockDictOut[stock] = closeDict
         print("Call %s: finished", name)
 
+    # Create a connection via TiingoClient
     config = {}
-
     # To reuse the same HTTP Session across API calls (and have better performance), include a session key.
     config['session'] = True
-
     # If you don't have your API key as an environment variable,
     # pass it in via a configuration dictionary.
     config['api_key'] = "a6051dc9e9d1140d8322de2b99755165d84f9671"
-
     # client is the connection to Tiingo
     client = TiingoClient(config)
-
-
     threads = list()
     stockDictOut = {}
     dateList = []
 
-    # open a thread that adds apple to the stockdict
-    # populate dateList with the apple trading days in order
+    # Convert datetime to a date iso String
+    sDate = sDate.date().isoformat()
+    eDate = eDate.date().isoformat()
 
     # make concurrent calls to Tiingo API to get stock prices
     for index,stock in enumerate(stockList):
@@ -135,5 +134,3 @@ def tiingoListAllData(stockList,sDate,eDate):
         thread.join()
 
     return stockDictOut
-
-#print(tiingoListAllData(['AAPL','JPM'],'2016-05-16', '2020-07-30'))
