@@ -21,8 +21,8 @@ def stockListAllData(actLedger,sDate,eDate):
     usa = []
     stockList=[]
     # split tickers into USA and foreign
-    for key in actLedger: # go through every key
-        sub= actLedger[key] # get the list of the key
+    for key in actLedger:
+        sub= actLedger[key]
         # get the first transaction object of each ticker
         subTicker= sub[0][1]
         # if the asset attribute is a stock, we keep the key for stock list
@@ -32,10 +32,10 @@ def stockListAllData(actLedger,sDate,eDate):
             else:
                 pass
                 # here, we could find the foreign tickers and map them to
-                # International tickers that we provide
+                # International tickers that user inputs as file or I/O
 
     # instead for now, its hardcoded
-    nonUsTick = {'APT':'APT.AX','NLAB':'NLAB.ST',"AIRd":"AIR.PA"}
+    nonUsTick = {'APT':'APT.AX', 'NLAB':'NLAB.ST',"AIRd":"AIR.PA"}
 
     # get aapl ticker because the price history extends back decades
     # Eventually, we should cache a list of trading days that we verify

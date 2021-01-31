@@ -7,41 +7,32 @@ import os
 import heapq
 import datetime
 
-
-
 # UNIVERSAL INSTANCE ACROSS ALL TYPES OF SIGNIFICANT EVENTS
 class Transaction:
 
     def __init__(self, transType):
-
-        # transtype
-        self.transType = transType
-        # change in shares
+        # datetime object
+        self.date= None
+        # asset type (stock, forex, deposit/withdrawal)
+        self.asset= None
+        # currency (maybe only used for stock)
+        self.currency= None
+        # ticker
+        self.ticker= None
+        # change in shares (be careful about this for currencies)
         self.dShares = None
         # transaction price
         self.tPrice = None
+        # splitFactor
+        self.splitFactor = None
+        # endShares (maybe better to keep for stockOnly)
+        self.endShares = None
         # commission
         self.comm = None
         # borrowInterest
         self.borrowCost = None
-        # splitFactor
-        self.splitFactor = None
-        # endShares
-        self.endShares = None
-        # ticker
-        self.ticker= None
-        # date
-        self.date= None
-        # time
-        self.time= None
-        # currency
-        self.currency= None
-        # asset type (stock, forex, etc)
-        self.asset= None
-        # store the key as well for future searchability
+        # store the key as well for future searchability (if we put dividend no need for this)
         self.ledgerKey = None
-        # every transaction should change the amount of cash in the portfolio
-        self.dCash = None
 
     def __eq__(self, other):
         return self.date == other.date
@@ -98,7 +89,8 @@ def parseIBKR(activityLedger, csvPath):
 
                 # Turning date into a datetime object for comparator
                 date = date.split('-')
-                date = datetime.datetime( int(date[0]) , int(date[1]), int(date[2]))
+                time = time.split(':')
+                date = datetime.datetime( int(date[0]) , int(date[1]), int(date[2]),int(time[0]), int(time[1]), int(time[2]) )
 
                 # ATTACH ALL THE NECESSARY DATA TO THE INSTANCE
                 tradeInstance= Transaction('Trade') # INITIALIZING THE INSTANCE
@@ -108,7 +100,6 @@ def parseIBKR(activityLedger, csvPath):
                 tradeInstance.ledgerKey = ticker
                 tradeInstance.dShares= quantity
                 tradeInstance.date= date
-                tradeInstance.time= time
                 tradeInstance.comm= row['Comm/Fee'] # getting the comissions and fees
                 tradeInstance.tPrice= row['T. Price'] # getting the transaction price
                 tradeInstance.currency= row['Currency'] # getting the currency of the trade
@@ -167,7 +158,7 @@ def parseIBKR(activityLedger, csvPath):
     # GETTING INTEREST DATA
     interest, dim= getSection(df, 'Interest') # getting everything that is a trade
 
-    # LOOP THROUGH ALL DIVIDENDS TO GET THE DATA
+    # LOOP THROUGH ALL Interest TO GET THE DATA
     if (type(interest) != bool and type(dim) != bool):
         for i in range(dim[0]):
 
@@ -252,8 +243,8 @@ def printActivityLedger(activityLedger):
         print()
 
 # takes in a list of sorted lists and returns a merged list will all elements
-# this could have been done just with actLedger. In the heap, all we'd need is
-# date,key,i
+# this could have been done just with actLedger. In the heap, we could have
+# put in transactions and used the object comparator to sort
 
 def mergeKSortedLists(lists: list, actLedger: dict):
 
@@ -300,7 +291,3 @@ else:
     # or rather the list inside it
 
     # merged the lists in activity ledger into one sorted List
-
-    #TODO Later:
-        # change API to only ask for dates that are used (perhaps write library)
-        # add time of trade to datetimeobj (should be in tradeInstance.time)
