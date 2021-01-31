@@ -29,6 +29,13 @@ def stockListAllData(actLedger,sDate,eDate):
         if subTicker.asset == 'Stocks':
             if subTicker.currency == 'USD':
                 usa.append(key)
+            else:
+                pass
+                # here, we could find the foreign tickers and map them to
+                # International tickers that we provide
+
+    # instead for now, its hardcoded
+    nonUsTick = {'APT':'APT.AX','NLAB':'NLAB.ST',"AIRd":"AIR.PA"}
 
     # get aapl ticker because the price history extends back decades
     # Eventually, we should cache a list of trading days that we verify
@@ -37,11 +44,11 @@ def stockListAllData(actLedger,sDate,eDate):
     # get US prices from tiingo
     usaDict = tiingoListAllData(usa,sDate,eDate)
     # get foreign prices from yahoo finance
-    foreign = getPricesOfThreeForeignStocks(sDate,eDate)
+    foreign = getPricesOfThreeForeignStocks(sDate,eDate,nonUsTick)
     # get tradeDays
     tradeDays = usaDict['AAPL'].keys()
 
-    return(usaDict,foreign,tradeDays)
+    return(usaDict,foreign,nonUsTick,tradeDays)
 
 
 

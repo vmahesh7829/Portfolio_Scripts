@@ -27,15 +27,14 @@ def yfDfToDict(stockDf):
     return out
 
 # later this should take sDate and eDate
-def getPricesOfThreeForeignStocks(sDate,eDate):
+def getPricesOfThreeForeignStocks(sDate,eDate,nonUsTick):
     out = dict()
     # yfinance takes dates as an iso string
     sDate = sDate.date().isoformat()
     eDate = eDate.date().isoformat()
 
     # foreign tickers in Yahoo Finance format
-    tickList = ["NLAB.ST","AIR.PA","APT.AX"]
-    for ticker in tickList:
+    for ticker in nonUsTick.values():
         newStock = yf.Ticker(ticker)
         newStock = newStock.history(start=sDate, end=eDate)
         newStock = yfDfToDict(newStock)
